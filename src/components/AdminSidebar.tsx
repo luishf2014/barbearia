@@ -9,7 +9,8 @@ import {
   Scissors,
   LayoutDashboard,
   UserPlus,
-  CalendarPlus
+  CalendarPlus,
+  Clock
 } from 'lucide-react';
 
 const sidebarItems = [
@@ -32,6 +33,11 @@ const sidebarItems = [
     title: 'Barbeiros',
     href: '/admin/barbeiros',
     icon: Scissors
+  },
+  {
+    title: 'Horários',
+    href: '/admin/horarios',
+    icon: Clock
   },
   {
     title: 'Novo Cliente',

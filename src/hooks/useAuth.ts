@@ -43,7 +43,7 @@ export function useAuth() {
         }
         
         setLoading(false)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('❌ Erro ao inicializar autenticação:', err)
         setError(err instanceof Error ? err.message : 'Erro ao inicializar autenticação')
         setLoading(false)
@@ -63,7 +63,7 @@ export function useAuth() {
             setUser(null)
           }
           setLoading(false)
-        } catch (err) {
+        } catch (err: unknown) {
           setError(err instanceof Error ? err.message : 'Erro ao atualizar estado da autenticação')
           setLoading(false)
         }
@@ -81,39 +81,121 @@ export function useAuth() {
         return { ...user, profile: cachedProfile }
       }
 
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      // Implementar retry com backoff exponencial
+      let retries = 0;
+      const maxRetries = 3;
+      let backoffMs = 500;
+      const maxBackoffMs = 10000;
+      
+      while (retries <= maxRetries) {
+        try {
+          const { data: profile, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single()
 
-      if (error) throw error
+          if (error) {
+            // Se for erro de limite de taxa, tenta novamente
+            if (error.message?.includes('rate limit') && retries < maxRetries) {
+              retries++;
+              console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+              continue;
+            }
+            throw error;
+          }
 
-      // Adicionar ao cache
-      if (profile) {
-        setProfileCache(prev => new Map(prev.set(user.id, profile)))
+          // Adicionar ao cache
+          if (profile) {
+            setProfileCache(prev => new Map(prev.set(user.id, profile)));
+          }
+
+          return { ...user, profile: profile || undefined };
+        } catch (error: unknown) {
+          if (retries < maxRetries && error instanceof Error && error.message?.includes('rate limit')) {
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+            continue;
+          }
+          throw error;
+        }
       }
 
-      return { ...user, profile: profile || undefined }
-    } catch (error) {
+      return { ...user, profile: undefined }
+    } catch (error: unknown) {
       console.error('Erro ao buscar perfil do usuário:', error)
       return user
     }
   }, [supabase, profileCache])
 
+  // Cache para armazenar todos os usuários
+  const [usersCache, setUsersCache] = useState<{data: UserProfile[] | null, timestamp: number}>({
+    data: null,
+    timestamp: 0
+  });
+  
   const getAllUsers = async (): Promise<UserProfile[]> => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('nome')
+      // Verificar cache (válido por 5 minutos)
+      const cacheValidityMs = 5 * 60 * 1000; // 5 minutos
+      const now = Date.now();
+      
+      if (usersCache.data && (now - usersCache.timestamp) < cacheValidityMs) {
+        console.log('Usando cache de usuários');
+        return usersCache.data;
+      }
+      
+      // Implementar retry com backoff exponencial
+      let retries = 0;
+      const maxRetries = 3;
+      let backoffMs = 500;
+      const maxBackoffMs = 10000;
+      
+      while (retries <= maxRetries) {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .order('nome')
 
-      if (error) throw error
-
-      return data || []
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error)
-      return []
+          if (error) {
+            // Se for erro de limite de taxa, tenta novamente
+            if (error.message?.includes('rate limit') && retries < maxRetries) {
+              retries++;
+              console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+              continue;
+            }
+            throw error;
+          }
+          
+          // Atualizar cache
+          setUsersCache({
+            data: data || [],
+            timestamp: now
+          });
+          
+          return data || [];
+        } catch (error: unknown) {
+          if (retries < maxRetries && error instanceof Error && error.message?.includes('rate limit')) {
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+            continue;
+          }
+          throw error;
+        }
+      }
+      
+      console.error('Erro ao buscar usuários após várias tentativas');
+      return [];
+    } catch (error: unknown) {
+      console.error('Erro ao buscar usuários:', error);
+      return [];
     }
   }
 
@@ -147,7 +229,7 @@ export function useAuth() {
       if (profileError) throw profileError
 
       return { data: authData, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar usuário'
       setError(errorMessage)
       return { data: null, error: errorMessage }
@@ -175,7 +257,7 @@ export function useAuth() {
       setUser(userWithProfile)
       
       return { data: { ...data, user: userWithProfile }, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Erro completo:', err)
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login'
       setError(errorMessage)
@@ -220,7 +302,7 @@ export function useAuth() {
       }
 
       return { data, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar conta'
       setError(errorMessage)
       return { data: null, error: errorMessage }
@@ -233,7 +315,7 @@ export function useAuth() {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       return { error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao sair'
       setError(errorMessage)
       return { error: errorMessage }
@@ -248,7 +330,7 @@ export function useAuth() {
       })
       if (error) throw error
       return { data, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao resetar senha'
       setError(errorMessage)
       return { data: null, error: errorMessage }
@@ -263,7 +345,7 @@ export function useAuth() {
       })
       if (error) throw error
       return { data, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar senha'
       setError(errorMessage)
       return { data: null, error: errorMessage }
@@ -289,7 +371,7 @@ export function useAuth() {
       }
 
       return { data, error: null }
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar perfil'
       setError(errorMessage)
       return { data: null, error: errorMessage }
