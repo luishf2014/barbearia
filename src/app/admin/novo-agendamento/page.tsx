@@ -18,14 +18,14 @@ type Barber = Database['public']['Tables']['barbers']['Row'];
 export default function NovoAgendamentoPage() {
   const { barbers } = useBarbers();
   const { getAllUsers } = useAuth();
-  const { getAvailableSlots, createAppointment } = useAppointments();
+  const { getAvailableSlots, getAllSlotsWithStatus, createAppointment } = useAppointments();
 
   const [clients, setClients] = useState<User[]>([]);
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedBarber, setSelectedBarber] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<{ time: string; isAvailable: boolean; }[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -39,12 +39,12 @@ export default function NovoAgendamentoPage() {
   useEffect(() => {
     const loadSlots = async () => {
       if (selectedBarber && selectedDate) {
-        const slots = await getAvailableSlots(selectedBarber, selectedDate);
+        const slots = await getAllSlotsWithStatus(selectedDate, selectedBarber);
         setAvailableSlots(slots);
       }
     };
     loadSlots();
-  }, [selectedBarber, selectedDate, getAvailableSlots]);
+  }, [selectedBarber, selectedDate, getAllSlotsWithStatus]);
 
   const nextSevenDays = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(new Date(), i);
@@ -156,11 +156,13 @@ export default function NovoAgendamentoPage() {
                   <SelectValue placeholder="Selecione um horário" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableSlots.map(slot => (
-                    <SelectItem key={slot} value={slot}>
-                      {slot}
-                    </SelectItem>
-                  ))}
+                  {availableSlots
+                    .filter(slot => slot.isAvailable)
+                    .map(slot => (
+                      <SelectItem key={slot.time} value={slot.time}>
+                        {slot.time}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
-export default function ConfirmEmailPage() {
+function ConfirmEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -104,5 +104,27 @@ export default function ConfirmEmailPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ConfirmEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-8 px-4 min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Carregando...</CardTitle>
+            <CardDescription>Aguarde enquanto carregamos a página.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ConfirmEmailContent />
+    </Suspense>
   );
 }

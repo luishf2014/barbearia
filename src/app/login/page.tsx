@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo, useEffect } from 'react';
+import { useState, useCallback, memo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +44,7 @@ const Label = dynamic(() => import("@/components/ui/label").then(mod => ({ defau
   loading: () => <Skeleton className="h-4 w-20" />
 });
 
-const LoginPage = memo(function LoginPage() {
+const LoginContent = memo(function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, signUp } = useAuth();
@@ -249,5 +249,13 @@ const LoginPage = memo(function LoginPage() {
     </div>
   );
 });
+
+const LoginPage = () => {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <LoginContent />
+    </Suspense>
+  );
+};
 
 export default LoginPage;
