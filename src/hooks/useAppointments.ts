@@ -273,7 +273,7 @@ export function useAppointments() {
       }
       
       // Extrair apenas os horários ocupados
-      const bookedHours = bookedSlots?.map((slot: any) => slot.hora) || []
+      const bookedHours = bookedSlots?.map((slot: { hora: string }) => slot.hora) || []
       
       console.log('Horários ocupados extraídos:', bookedHours)
       
