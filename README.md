@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de Barbearia
 
-## Getting Started
+Sistema web completo para gerenciamento de uma barbearia, desenvolvido com Next.js, TypeScript, TailwindCSS, shadcn/ui e Supabase.
 
-First, run the development server:
+## Funcionalidades
+
+### Área Pública
+- Home com informações da barbearia
+- Galeria de fotos
+- Login e cadastro de usuários
+
+### Área do Cliente
+- Agendamento de horários
+- Visualização e cancelamento de agendamentos
+
+### Área Administrativa
+- Dashboard com métricas
+- Gestão de agendamentos
+- Gestão de barbeiros
+- Gestão de clientes
+- Agendamento manual
+
+## Tecnologias
+
+- [Next.js 14](https://nextjs.org/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [TailwindCSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Supabase](https://supabase.com/)
+
+## Pré-requisitos
+
+- Node.js 18.17 ou superior
+- NPM ou Yarn
+- Conta no Supabase
+
+## Configuração do Projeto
+
+1. Clone o repositório:
+```bash
+git clone https://seu-repositorio/barbearia.git
+cd barbearia
+```
+
+2. Instale as dependências:
+```bash
+npm install
+# ou
+yarn install
+```
+
+3. Configure as variáveis de ambiente:
+- Copie o arquivo `.env.example` para `.env.local`
+- Preencha as variáveis com suas credenciais do Supabase
+
+4. Configure o banco de dados no Supabase:
+- Execute o SQL disponível em `supabase-setup.sql` no SQL Editor do Supabase
+- Isso criará as tabelas necessárias e configurará as políticas de segurança (RLS)
+
+## Desenvolvimento Local
 
 ```bash
 npm run dev
-# or
+# ou
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Deploy na Vercel
 
-## Learn More
+1. Crie uma conta na [Vercel](https://vercel.com)
+2. Conecte seu repositório
+3. Configure as variáveis de ambiente:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+4. Deploy!
 
-To learn more about Next.js, take a look at the following resources:
+## Estrutura do Projeto
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+├── src/
+│   ├── app/                 # Rotas e páginas
+│   ├── components/          # Componentes React
+│   ├── hooks/              # Custom hooks
+│   ├── lib/                # Utilitários e configurações
+│   └── middleware.ts       # Middleware Next.js
+├── public/                 # Arquivos estáticos
+├── .env.example           # Template de variáveis de ambiente
+├── next.config.js         # Configuração Next.js
+├── package.json           # Dependências e scripts
+├── README.md              # Documentação
+├── supabase-setup.sql     # SQL para configuração do banco
+└── tsconfig.json          # Configuração TypeScript
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Segurança
 
-## Deploy on Vercel
+- Autenticação gerenciada pelo Supabase Auth
+- Row Level Security (RLS) para proteção dos dados
+- Middleware Next.js para proteção de rotas
+- Validação de permissões por tipo de usuário (admin/cliente)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contribuição
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Faça o fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Abra um Pull Request
+
+## Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.

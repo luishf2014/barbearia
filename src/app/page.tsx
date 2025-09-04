@@ -1,103 +1,202 @@
-import Image from "next/image";
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Scissors, Clock, Users, Star, MapPin, Phone } from 'lucide-react'
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-slate-900">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden py-20 bg-gradient-to-br from-slate-900 via-gray-900 to-black">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-white/5 rounded-full animate-pulse-slow flex items-center justify-center text-white/20 text-4xl">✂️</div>
+          <div className="absolute top-40 right-20 w-24 h-24 bg-white/10 rounded-full animate-float flex items-center justify-center text-white/30 text-2xl">💈</div>
+          <div className="absolute bottom-32 left-32 w-20 h-20 bg-white/5 rounded-full animate-pulse-slow flex items-center justify-center text-white/20 text-xl">⚡</div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        
+        <div className="relative max-w-6xl mx-auto px-6 text-center">
+          {/* Logo Section */}
+          <div className="mb-8">
+            <div className="inline-flex items-center space-x-4 mb-6">
+              <div className="bg-white rounded-full p-4">
+                <Scissors className="h-12 w-12 text-slate-900" />
+              </div>
+              <div className="text-left">
+                <h1 className="text-5xl md:text-7xl font-bold text-white font-oswald tracking-wider">
+                  CAMISA 10
+                </h1>
+                <p className="text-lg text-white/70 font-light tracking-widest -mt-2">
+                  BARBEARIA
+                </p>
+              </div>
+            </div>
+            <div className="w-32 h-1 bg-white/50 mx-auto mb-8"></div>
+          </div>
+          
+          <p className="text-xl md:text-3xl mb-12 text-white/90 font-light max-w-3xl mx-auto">
+            Tradição, estilo e qualidade em cada corte
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-200 font-semibold py-4 px-8 text-lg" asChild>
+              <Link href="/agenda">🚀 Agendar Agora</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-slate-900 font-semibold py-4 px-8 text-lg" asChild>
+              <Link href="/galeria">📸 Ver Galeria</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-slate-800">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-center mb-16 text-white font-oswald">
+            Por que escolher a CAMISA 10?
+          </h2>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <Card className="bg-slate-700 border-slate-600 p-8 text-center hover:bg-slate-600 transition-all duration-300 group">
+              <CardHeader>
+                <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <Users className="h-12 w-12 text-slate-900" />
+                </div>
+                <CardTitle className="text-2xl font-semibold text-white font-oswald">Profissionais de Elite</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-white/70 leading-relaxed">
+                  Nossa equipe é formada por barbeiros experientes e apaixonados pela arte do corte masculino.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-700 border-slate-600 p-8 text-center hover:bg-slate-600 transition-all duration-300 group">
+              <CardHeader>
+                <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <Clock className="h-12 w-12 text-slate-900" />
+                </div>
+                <CardTitle className="text-2xl font-semibold text-white font-oswald">Agendamento Online</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-white/70 leading-relaxed">
+                  Agende seu horário de forma rápida e prática através do nosso sistema online
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-700 border-slate-600 p-8 text-center hover:bg-slate-600 transition-all duration-300 group">
+              <CardHeader>
+                <div className="bg-white rounded-full p-4 w-20 h-20 mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <Star className="h-12 w-12 text-slate-900" />
+                </div>
+                <CardTitle className="text-2xl font-semibold text-white font-oswald">Atendimento Premium</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-white/70 leading-relaxed">
+                  Oferecemos uma experiência única com produtos de alta qualidade
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Services Section */}
+      <section className="py-20 bg-slate-900">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 font-oswald">
+              Nossos Serviços
+            </h2>
+            <div className="w-32 h-1 bg-white/50 mx-auto"></div>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { name: 'Corte Masculino', price: 'R$ 35,00', icon: '✂️' },
+              { name: 'Barba', price: 'R$ 25,00', icon: '🪒' },
+              { name: 'Corte + Barba', price: 'R$ 55,00', icon: '💈' },
+              { name: 'Sobrancelha', price: 'R$ 15,00', icon: '✨' },
+            ].map((service, index) => (
+              <Card key={index} className="bg-slate-800 border-slate-700 hover:bg-slate-700 transition-all duration-300 group">
+                <CardHeader className="text-center">
+                  <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">{service.icon}</div>
+                  <CardTitle className="text-xl text-white font-oswald">{service.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                  <p className="text-3xl font-bold text-white">{service.price}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section className="py-20 bg-slate-800">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 font-oswald">
+              Onde nos encontrar
+            </h2>
+            <div className="w-32 h-1 bg-white/50 mx-auto"></div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <Card className="bg-slate-700 border-slate-600 hover:bg-slate-600 transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white font-oswald text-xl">
+                  <div className="bg-white rounded-full p-2">
+                    <MapPin className="h-6 w-6 text-slate-900" />
+                  </div>
+                  Endereço
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/70 text-lg leading-relaxed">
+                  📍 Rua das Flores, 123<br />
+                  Centro - São Paulo/SP<br />
+                  CEP: 01234-567
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-700 border-slate-600 hover:bg-slate-600 transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white font-oswald text-xl">
+                  <div className="bg-white rounded-full p-2">
+                    <Phone className="h-6 w-6 text-slate-900" />
+                  </div>
+                  Contato
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/70 text-lg leading-relaxed">
+                  📞 Telefone: (11) 99999-9999<br />
+                  💬 WhatsApp: (11) 99999-9999<br />
+                  ✉️ Email: contato@camisa10.com
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-slate-900 to-black">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 font-oswald">
+            Pronto para um novo visual?
+          </h2>
+          <p className="text-xl text-white/80 mb-12 max-w-2xl mx-auto">
+            Junte-se aos nossos clientes satisfeitos e experimente o melhor da barbearia tradicional
+          </p>
+          <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-200 font-semibold py-4 px-8 text-lg" asChild>
+            <Link href="/agenda">Começar Agora</Link>
+          </Button>
+        </div>
+      </section>
     </div>
-  );
+  )
 }
