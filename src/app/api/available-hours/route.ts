@@ -130,7 +130,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updates: any = {};
+    interface AvailableHourUpdates {
+      barber_id?: string;
+      day_of_week?: number;
+      start_time?: string;
+      end_time?: string;
+      interval_minutes?: number;
+      is_active?: boolean;
+    }
+    
+    const updates: AvailableHourUpdates = {};
     if (barber_id) updates.barber_id = barber_id;
     if (day_of_week !== undefined) updates.day_of_week = day_of_week;
     if (start_time) updates.start_time = start_time;
