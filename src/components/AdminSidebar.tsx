@@ -55,21 +55,34 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="pb-12 min-h-screen">
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold">Administração</h2>
-          <div className="space-y-1">
+    <div className="pb-12 min-h-screen bg-slate-900">
+      <div className="space-y-6 py-6">
+        <div className="px-4 py-2">
+          <div className="flex items-center gap-2 px-2 py-3 mb-6">
+            <div className="bg-white rounded-full p-1.5">
+              <Scissors className="h-4 w-4 text-black" />
+            </div>
+            <div>
+              <h2 className="text-white font-bold">CAMISA 10</h2>
+              <p className="text-slate-400 text-xs">BARBEARIA</p>
+            </div>
+          </div>
+          <div className="space-y-2">
             {sidebarItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
-                  pathname === item.href ? 'bg-accent' : 'transparent'
+                  'flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-all',
+                  pathname === item.href 
+                    ? 'bg-white/10 text-white shadow-md' 
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
                 )}
               >
-                <item.icon className="mr-2 h-4 w-4" />
+                <item.icon className={cn(
+                  "mr-3 h-5 w-5",
+                  pathname === item.href ? "text-white" : "text-slate-400"
+                )} />
                 {item.title}
               </Link>
             ))}
