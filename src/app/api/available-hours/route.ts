@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(availableHours);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao buscar horários disponíveis' },
       { status: 500 }

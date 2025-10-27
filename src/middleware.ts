@@ -2,14 +2,17 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Ignorar middleware para rotas públicas
+  // Ignorar middleware para rotas públicas e assets
   const publicRoutes = ['/login', '/', '/galeria']
-  if (publicRoutes.includes(request.nextUrl.pathname)) {
+  const isPublicRoute = publicRoutes.some(route => 
+    request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '?')
+  )
+  
+  if (isPublicRoute) {
     return NextResponse.next()
   }
 
   try {
-
     const response = NextResponse.next()
     const supabase = createMiddlewareClient({ req: request, res: response })
 
@@ -20,7 +23,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    console.log('Verificando autenticação...')
+    // Se não há sessão, redirecionar para login
+    if (!session) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError) {
@@ -44,9 +51,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Se está autenticado, verificar tipo de usuário
+    // Se está autenticado, verificar tipo de usuário apenas para rotas específicas
     if (user && isProtectedRoute) {
       console.log('Verificando tipo do usuário...')
+      
+      // Aguardar um pouco para garantir que a sessão esteja completamente estabelecida
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('tipo')
@@ -55,18 +66,20 @@ export async function middleware(request: NextRequest) {
 
       if (userError) {
         console.error('Erro ao buscar dados do usuário:', userError)
-        return NextResponse.redirect(new URL('/login', request.url))
+        // Não redirecionar imediatamente em caso de erro, permitir que a página carregue
+        console.log('Permitindo acesso mesmo com erro na busca do perfil')
+        return response
       }
 
       console.log('Tipo do usuário:', userData?.tipo)
 
-      // Redirecionamento baseado no tipo de usuário
+      // Redirecionamento baseado no tipo de usuário - apenas se for uma tentativa clara de acesso incorreto
       if (request.nextUrl.pathname.startsWith('/admin') && userData?.tipo !== 'admin') {
         console.log('Redirecionando: usuário não admin tentando acessar área admin')
         return NextResponse.redirect(new URL('/agenda', request.url))
       }
 
-      if (request.nextUrl.pathname.startsWith('/agenda') && userData?.tipo === 'admin') {
+      if (request.nextUrl.pathname === '/agenda' && userData?.tipo === 'admin') {
         console.log('Redirecionando: admin tentando acessar área de cliente')
         return NextResponse.redirect(new URL('/admin/dashboard', request.url))
       }

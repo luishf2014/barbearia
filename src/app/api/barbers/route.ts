@@ -14,7 +14,7 @@ export async function GET() {
     if (error) throw error;
 
     return NextResponse.json(barbers);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao buscar barbeiros' },
       { status: 500 }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(barber);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao criar barbeiro' },
       { status: 500 }
@@ -125,7 +125,7 @@ export async function PATCH(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(barber);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao atualizar barbeiro' },
       { status: 500 }

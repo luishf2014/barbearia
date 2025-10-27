@@ -74,13 +74,13 @@ export async function GET(request: NextRequest) {
         .from('appointments')
         .select('*')
         .eq('barber_id', barberId)
-        .eq('date', date)
-        .in('status', ['confirmado', 'pendente']);
+        .eq('data', date)
+        .eq('status', 'agendado');
 
       if (appointmentsError) throw appointmentsError;
 
       // Filtrar slots ocupados
-      const bookedSlots = appointments?.map(app => app.time) || [];
+      const bookedSlots = appointments?.map(app => app.hora) || [];
       const availableSlots = slots.filter(slot => !bookedSlots.includes(slot));
 
       return NextResponse.json(availableSlots);
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
         .from('appointments')
         .select('*')
         .eq('barber_id', barberId)
-        .eq('date', date)
-        .in('status', ['confirmado', 'pendente']);
+        .eq('data', date)
+        .eq('status', 'agendado');
 
       if (appointmentsError) {
         // Se falhar ao buscar agendamentos, retorna os slots padrão
@@ -126,13 +126,13 @@ export async function GET(request: NextRequest) {
       }
 
       // Filtrar slots ocupados
-      const bookedSlots = appointments?.map(app => app.time) || [];
+      const bookedSlots = appointments?.map(app => app.hora) || [];
       const availableSlots = defaultSlots.filter(slot => !bookedSlots.includes(slot));
 
       return NextResponse.json(availableSlots);
     }
-  } catch (error) {
-    console.error('Erro na API de slots:', error);
+  } catch (_error) {
+    console.error('Erro na API de slots:', _error);
     return NextResponse.json(
       { error: 'Erro ao buscar slots disponíveis' },
       { status: 500 }

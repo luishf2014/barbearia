@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/supabase'
 import { useAuth } from './useAuth'
@@ -10,11 +10,56 @@ type AppointmentInsert = Database['public']['Tables']['appointments']['Insert']
 type Barber = Database['public']['Tables']['barbers']['Row']
 
 export interface AppointmentWithDetails extends Appointment {
-  barber?: Barber
+  service_id?: string
+  preco?: number
+  barber?: {
+    id: string
+    nome: string
+    status: string
+  }
   cliente?: {
     nome: string
     email: string
   }
+}
+
+// Cache global para agendamentos
+let appointmentsCache: {
+  data: AppointmentWithDetails[]
+  timestamp: number
+  userId: string | null
+  isAdmin: boolean
+} | null = null
+
+const CACHE_TTL = 2 * 60 * 1000 // 2 minutos
+const MAX_RETRIES = 3
+const INITIAL_BACKOFF = 500
+const MAX_BACKOFF = 5000
+
+// Função utilitária para retry com backoff exponencial
+const retryWithBackoff = async <T>(
+  operation: () => Promise<T>,
+  maxRetries = MAX_RETRIES,
+  initialBackoff = INITIAL_BACKOFF
+): Promise<T> => {
+  let retries = 0
+  let backoff = initialBackoff
+
+  while (retries <= maxRetries) {
+    try {
+      return await operation()
+    } catch (error: any) {
+      if (retries === maxRetries || !error?.message?.includes('rate limit')) {
+        throw error
+      }
+      
+      retries++
+      await new Promise(resolve => setTimeout(resolve, backoff))
+      backoff = Math.min(backoff * 2, MAX_BACKOFF)
+    }
+  }
+  
+  throw new Error('Max retries exceeded')
 }
 
 export function useAppointments() {
@@ -23,230 +68,192 @@ export function useAppointments() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Cache para armazenar agendamentos
-  const [appointmentsCache, setAppointmentsCache] = useState<{
-    data: AppointmentWithDetails[] | null,
-    timestamp: number,
-    userId: string | null,
-    isAdmin: boolean
-  }>({
-    data: null,
-    timestamp: 0,
-    userId: null,
-    isAdmin: false
-  });
-
-  // Buscar agendamentos com cache e retry
-  const fetchAppointments = async () => {
+  // Buscar agendamentos com cache e retry otimizado
+  const fetchAppointments = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
       
-      // Verificar cache (válido por 2 minutos)
-      const cacheValidityMs = 2 * 60 * 1000; // 2 minutos
-      const now = Date.now();
-      const userId = user?.id || null;
+      const now = Date.now()
+      const userId = user?.id || null
       
-      // Usar cache se disponível e válido (mesmo usuário e permissões)
-      if (appointmentsCache.data && 
-          (now - appointmentsCache.timestamp) < cacheValidityMs &&
+      // Debug logs
+      console.log('🔍 DEBUG useAppointments fetchAppointments:', {
+        user: user?.id || 'não logado',
+        isAdmin,
+        userId,
+        forceRefresh
+      });
+      
+      // Verificar cache
+      if (!forceRefresh && appointmentsCache && 
+          (now - appointmentsCache.timestamp) < CACHE_TTL &&
           appointmentsCache.userId === userId &&
           appointmentsCache.isAdmin === isAdmin) {
-        console.log('Usando cache de agendamentos');
-        setAppointments(appointmentsCache.data);
-        setLoading(false);
-        return;
+        console.log('📦 Usando cache de agendamentos');
+        setAppointments(appointmentsCache.data)
+        setLoading(false)
+        return appointmentsCache.data
       }
 
-      // Implementar retry com backoff exponencial
-      let retries = 0;
-      const maxRetries = 3;
-      let backoffMs = 500;
-      const maxBackoffMs = 10000;
-      
-      while (retries <= maxRetries) {
-        try {
-          let query = supabase
-            .from('appointments')
-            .select(`
-              *,
-              barber:barbers(*),
-              cliente:users(nome, email)
-            `)
-            .order('data', { ascending: true })
-            .order('hora', { ascending: true })
+      // Buscar dados com retry
+      const data = await retryWithBackoff(async () => {
+        let query = supabase
+          .from('appointments')
+          .select(`
+            id, data, hora, status, cliente_id, barber_id, created_at, service_id, preco,
+            barber:barbers(id, nome, status),
+            cliente:users(nome, email)
+          `)
+          .order('data', { ascending: true })
+          .order('hora', { ascending: true })
 
-          // Se não for admin, mostrar apenas agendamentos do próprio usuário
-          if (!isAdmin && user) {
-            query = query.eq('cliente_id', user.id)
-          }
-
-          const { data, error } = await query
-
-          if (error) {
-            // Se for erro de limite de taxa, tenta novamente
-            if (error.message?.includes('rate limit') && retries < maxRetries) {
-              retries++;
-              console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${maxRetries})`);
-              await new Promise(resolve => setTimeout(resolve, backoffMs));
-              backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-              continue;
-            }
-            throw error;
-          }
-
-          // Atualizar cache
-          setAppointmentsCache({
-            data: data || [],
-            timestamp: now,
-            userId,
-            isAdmin
-          });
-          
-          setAppointments(data || [])
-          break;
-        } catch (error: unknown) {
-        if (retries < maxRetries && error instanceof Error && error.message?.includes('rate limit')) {
-            retries++;
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-            continue;
-          }
-          throw error;
+        if (!isAdmin && user) {
+          console.log('🔍 Filtrando por cliente_id:', user.id);
+          query = query.eq('cliente_id', user.id)
+        } else {
+          console.log('🔍 Buscando todos os agendamentos (admin ou sem usuário)');
         }
+
+        const { data, error } = await query
+        console.log('📊 Resultado da query:', { data: data?.length || 0, error });
+        if (error) throw error
+        return data || []
+      })
+
+      // Transformar dados para o formato correto
+       const transformedData = data.map((appointment: any) => ({
+         ...appointment,
+         barber: appointment.barber?.[0] ? {
+           id: appointment.barber[0].id,
+           nome: appointment.barber[0].nome,
+           status: 'ativo' // Valor padrão já que não existe na tabela barbers
+         } : undefined,
+         cliente: appointment.cliente?.[0] ? {
+           nome: appointment.cliente[0].nome,
+           email: appointment.cliente[0].email
+         } : undefined
+       }))
+
+      // Atualizar cache
+      appointmentsCache = {
+        data: transformedData,
+        timestamp: now,
+        userId,
+        isAdmin
       }
+      
+      setAppointments(transformedData)
+      return transformedData
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar agendamentos')
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar agendamentos'
+      setError(errorMessage)
+      console.error('Erro ao buscar agendamentos:', err)
+      return []
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, isAdmin])
 
-  // Criar agendamento com retry
-  const createAppointment = async (appointmentData: Omit<AppointmentInsert, 'id' | 'created_at'>) => {
+  // Criar agendamento otimizado
+  const createAppointment = useCallback(async (appointmentData: Omit<AppointmentInsert, 'id' | 'created_at'>) => {
     try {
       setError(null)
 
-      // Implementar retry com backoff exponencial
-      let retries = 0;
-      const maxRetries = 3;
-      let backoffMs = 500;
-      const maxBackoffMs = 10000;
-      
-      // Função para verificar disponibilidade com retry
-      const checkAvailability = async () => {
-        while (retries <= maxRetries) {
-          try {
-            const { data: existingAppointment, error } = await supabase
-              .from('appointments')
-              .select('id')
-              .eq('barber_id', appointmentData.barber_id)
-              .eq('data', appointmentData.data)
-              .eq('hora', appointmentData.hora)
-              .eq('status', 'agendado')
-              .single()
+      // 1) Tentar criar via RPC com validações no banco (preço, duração, conflito)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('save_client_appointment', {
+        p_cliente_id: appointmentData.cliente_id,
+        p_barber_id: appointmentData.barber_id,
+        p_service_id: appointmentData.service_id || null,
+        p_date: appointmentData.data,
+        p_time: appointmentData.hora,
+        p_status: appointmentData.status || 'agendado'
+      })
 
-            if (error) {
-              // Se for erro de limite de taxa, tenta novamente
-              if (error.message?.includes('rate limit') && retries < maxRetries) {
-                retries++;
-                console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${maxRetries})`);
-                await new Promise(resolve => setTimeout(resolve, backoffMs));
-                backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-                continue;
-              }
-              
-              // Se for erro de não encontrado, significa que o horário está disponível
-              if (error.code === 'PGRST116') {
-                return null;
-              }
-              
-              throw error;
-            }
+      if (!rpcError && rpcData) {
+        // Refetch para trazer relações e manter consistência de cache
+        await fetchAppointments(true)
+        appointmentsCache = null
+        return { data: rpcData?.[0] ?? null, error: null }
+      }
 
-            return existingAppointment;
-          } catch (error: unknown) {
-          if (retries < maxRetries && error instanceof Error && error.message?.includes('rate limit')) {
-              retries++;
-              await new Promise(resolve => setTimeout(resolve, backoffMs));
-              backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-              continue;
-            }
-            throw error;
-          }
+      // 2) Fallback seguro para inserção direta caso RPC não exista ou falhe
+      console.warn('RPC save_client_appointment indisponível, usando fallback:', rpcError?.message)
+
+      // Verificar disponibilidade (fallback)
+      const existingAppointment = await retryWithBackoff(async () => {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id')
+          .eq('barber_id', appointmentData.barber_id)
+          .eq('data', appointmentData.data)
+          .eq('hora', appointmentData.hora)
+          .eq('status', 'agendado')
+          .single()
+
+        if (error?.code === 'PGRST116') {
+          return null // Horário disponível
         }
-        return null;
-      };
-      
-      // Verificar se o horário está disponível
-      const existingAppointment = await checkAvailability();
+        if (error) throw error
+        return data
+      })
       
       if (existingAppointment) {
         throw new Error('Este horário já está ocupado')
       }
       
-      // Resetar contadores para a próxima operação
-      retries = 0;
-      backoffMs = 500;
-      
-      // Criar agendamento com retry
-      while (retries <= maxRetries) {
-        try {
-          const { data, error } = await supabase
-            .from('appointments')
-            .insert(appointmentData)
-            .select(`
-              *,
-              barber:barbers(*),
-              cliente:users(nome, email)
-            `)
-            .single()
+      // Criar agendamento (fallback)
+      const data = await retryWithBackoff(async () => {
+        const { data, error } = await supabase
+          .from('appointments')
+          .insert(appointmentData)
+          .select(`
+            id, data, hora, status, cliente_id, barber_id, created_at,
+            barber:barbers(id, nome, status),
+            cliente:users(nome, email)
+          `)
+          .single()
 
-          if (error) {
-            // Se for erro de limite de taxa, tenta novamente
-            if (error.message?.includes('rate limit') && retries < maxRetries) {
-              retries++;
-              console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${maxRetries})`);
-              await new Promise(resolve => setTimeout(resolve, backoffMs));
-              backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-              continue;
-            }
-            throw error;
-          }
+        if (error) throw error
+        return data
+      })
 
-          // Atualizar lista local e cache
-          setAppointments(prev => [...prev, data]);
-          
-          // Invalidar cache de agendamentos para forçar nova busca
-          setAppointmentsCache(prev => ({
-            ...prev,
-            timestamp: 0
-          }));
-          
-          return { data, error: null };
-        } catch (error: unknown) {
-          if (retries < maxRetries && error instanceof Error && error.message?.includes('rate limit')) {
-            retries++;
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-            continue;
-          }
-          throw error;
-        }
+      // Transformar dados para o formato correto
+      const transformedData = {
+        ...data,
+        barber: data.barber?.[0] ? {
+          id: data.barber[0].id,
+          nome: data.barber[0].nome,
+          status: 'ativo'
+        } : undefined,
+        cliente: data.cliente?.[0] ? {
+          nome: data.cliente[0].nome,
+          email: data.cliente[0].email
+        } : undefined
       }
+
+      // Atualizar estado e invalidar cache
+      setAppointments(prev => [...prev, transformedData])
+      appointmentsCache = null
       
-      throw new Error('Falha ao criar agendamento após várias tentativas');
+      return { data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar agendamento'
       setError(errorMessage)
+      console.error('Erro ao criar agendamento:', err)
       return { data: null, error: errorMessage }
     }
-  }
+  }, [fetchAppointments])
 
   // Cancelar agendamento
   const cancelAppointment = async (appointmentId: string) => {
     try {
       setError(null)
+
+      // Atualização otimista - atualizar a interface imediatamente
+      setAppointments(prev => 
+        prev.map(apt => apt.id === appointmentId ? { ...apt, status: 'cancelado' } : apt)
+      )
 
       const { data, error } = await supabase
         .from('appointments')
@@ -254,19 +261,42 @@ export function useAppointments() {
         .eq('id', appointmentId)
         .select(`
           *,
-          barber:barbers(*),
+          barber:barbers(id, nome, status),
           cliente:users(nome, email)
         `)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Reverter a atualização otimista em caso de erro
+        setAppointments(prev => 
+          prev.map(apt => apt.id === appointmentId ? { ...apt, status: 'agendado' } : apt)
+        )
+        throw error
+      }
 
-      // Atualizar lista local
+      // Transformar dados para o formato correto
+      const transformedData = {
+        ...data,
+        barber: data.barber?.[0] ? {
+          id: data.barber[0].id,
+          nome: data.barber[0].nome,
+          status: 'ativo'
+        } : undefined,
+        cliente: data.cliente?.[0] ? {
+          nome: data.cliente[0].nome,
+          email: data.cliente[0].email
+        } : undefined
+      }
+
+      // Atualizar com os dados corretos do servidor
       setAppointments(prev => 
-        prev.map(apt => apt.id === appointmentId ? data : apt)
+        prev.map(apt => apt.id === appointmentId ? transformedData : apt)
       )
+
+      // Invalidar cache para próximas consultas
+      appointmentsCache = null
       
-      return { data, error: null }
+      return { data: transformedData, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao cancelar agendamento'
       setError(errorMessage)
@@ -274,236 +304,145 @@ export function useAppointments() {
     }
   }
 
-  // Buscar horários disponíveis para uma data e barbeiro
-  const getAvailableSlots = async (date: string, barberId: string) => {
+  // Horários padrão memoizados
+  const workingHours = useMemo(() => ({
+    weekday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
+             '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
+             '16:00', '16:30', '17:00', '17:30'],
+    saturday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
+              '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30'],
+    sunday: [] // Fechado
+  }), [])
+
+  // Buscar horários disponíveis otimizado
+  const getAvailableSlots = useCallback(async (date: string, barberId: string) => {
     try {
-      // Tentar usar a função RPC get_barber_availability primeiro
+      // Tentar RPC primeiro
       try {
-        const { data: availableHoursData, error: availableHoursError } = await supabase
+        const { data: availableHoursData, error } = await supabase
           .rpc('get_barber_availability', { 
             p_barber_id: barberId, 
             p_date: date 
           })
         
-        if (!availableHoursError && availableHoursData && availableHoursData.length > 0) {
-          console.log('Usando horários da função RPC:', availableHoursData)
+        if (!error && availableHoursData?.length > 0) {
           return availableHoursData
         }
-      } catch (rpcErr: unknown) {
-        console.log('Erro ao usar RPC get_barber_availability:', rpcErr)
-        // Continuar com o método alternativo
+      } catch {
+        // Continuar com método alternativo
       }
       
-      // Método alternativo: horários padrão e filtrar agendamentos
-      const workingHours = {
-        weekday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
-                 '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
-                 '16:00', '16:30', '17:00', '17:30'],
-        saturday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
-                  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30'],
-        sunday: [] // Fechado
-      }
-
+      // Método alternativo otimizado
       const dayOfWeek = new Date(date).getDay()
-      let availableHours: string[] = []
+      let availableHours: string[]
 
-      if (dayOfWeek === 0) { // Domingo
+      if (dayOfWeek === 0) {
         availableHours = workingHours.sunday
-      } else if (dayOfWeek === 6) { // Sábado
+      } else if (dayOfWeek === 6) {
         availableHours = workingHours.saturday
-      } else { // Segunda a Sexta
+      } else {
         availableHours = workingHours.weekday
       }
 
-      // Buscar agendamentos para a data e barbeiro específicos
-      const { data: bookedAppointments, error } = await supabase
-        .from('appointments')
-        .select('hora')
-        .eq('barber_id', barberId)
-        .eq('data', date)
-        .eq('status', 'agendado')
-      
-      if (error) {
-        console.error('Erro ao buscar agendamentos:', error)
-        // Se houver erro, assumir que todos os horários estão disponíveis
-        return availableHours
-      }
-
-      // Extrair horários ocupados
-      const bookedHours = bookedAppointments?.map(slot => slot.hora) || []
-      
-      // Filtrar horários disponíveis
-      const availableSlots = availableHours.filter(hour => !bookedHours.includes(hour))
-      
-      return availableSlots
-    } catch (err) {
-      console.error('Erro ao buscar horários disponíveis:', err)
-      return []
-    }
-  }
-
-  // Buscar todos os horários com status (disponível/ocupado) para uma data e barbeiro
-  const getAllSlotsWithStatus = async (date: string, barberId: string) => {
-    try {
-      // Buscar horários disponíveis da tabela available_hours
-      let allHours: string[] = []
-      
-      try {
-        // Primeiro tenta buscar da API
-        try {
-          const response = await fetch(`/api/available-hours/slots?barber_id=${barberId}&date=${date}`)
-          
-          if (response.ok) {
-            const apiData = await response.json()
-            if (apiData && apiData.length > 0) {
-              allHours = apiData
-              console.log('✅ Usando API de slots:', { allHours })
-              // Se a API retornou dados, não precisa tentar a RPC
-              throw new Error('Usando dados da API')
-            }
-          }
-        } catch (apiErr: unknown) {
-          if (apiErr instanceof Error && apiErr.message === 'Usando dados da API') {
-            // Não é um erro real, apenas um controle de fluxo
-            console.log('API retornou dados, pulando RPC')
-          } else {
-            // Se a API falhar, tenta a RPC
-            console.log('⚠️ API falhou, tentando RPC:', apiErr)
-            
-            const { data: availableHoursData, error: availableHoursError } = await supabase
-              .rpc('get_barber_availability', { 
-                p_barber_id: barberId, 
-                p_date: date 
-              })
-            
-            console.log('Horários disponíveis da função:', { availableHoursData, availableHoursError })
-            
-            if (!availableHoursError && availableHoursData && availableHoursData.length > 0) {
-              // Usar os horários retornados pela função
-              allHours = availableHoursData
-              console.log('Usando horários da tabela available_hours:', allHours)
-            } else {
-              throw new Error('Função não retornou dados')
-            }
-          }
-        }
-      } catch (err: unknown) {
-        // Se não for o erro de controle de fluxo e allHours ainda estiver vazio
-        if (err instanceof Error && err.message !== 'Usando dados da API' && allHours.length === 0) {
-          console.log('Função get_barber_availability falhou ou não retornou dados, usando horários padrão', err)
-          // Fallback para horários padrão
-          const workingHours = {
-            weekday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
-                     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
-                     '16:00', '16:30', '17:00', '17:30'],
-            saturday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
-                      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30'],
-            sunday: [] // Fechado
-          }
-
-          const dayOfWeek = new Date(date).getDay()
-
-          if (dayOfWeek === 0) { // Domingo
-            allHours = workingHours.sunday
-          } else if (dayOfWeek === 6) { // Sábado
-            allHours = workingHours.saturday
-          } else { // Segunda a Sexta
-            allHours = workingHours.weekday
-          }
-        }
-      }
-
-      // Buscar horários ocupados (agendados) do banco de dados
-      console.log('Buscando agendamentos para:', { barberId, date })
-      
-      // Tentar buscar horários ocupados
-      let bookedSlots = []
-      let error = null
-      
-      try {
-        console.log('🔍 Buscando horários ocupados para:', { barberId, date })
-        
-        // Tentar buscar diretamente da tabela de agendamentos
-        const { data: directData, error: directError } = await supabase
+      // Buscar agendamentos com retry
+      const bookedAppointments = await retryWithBackoff(async () => {
+        const { data, error } = await supabase
           .from('appointments')
           .select('hora')
           .eq('barber_id', barberId)
           .eq('data', date)
-          .in('status', ['agendado', 'confirmado', 'pendente'])
+          .eq('status', 'agendado')
         
-        console.log('📊 Resultado query direta:', { directData, directError })
-        
-        if (!directError && directData) {
-          bookedSlots = directData
-          error = null
-          console.log('✅ Usando query direta:', { bookedSlots })
-        } else {
-          // Se falhar, tentar com RPC
-          try {
-            const { data: rpcData, error: rpcError } = await supabase
-              .rpc('get_booked_slots', { p_barber_id: barberId, p_appointment_date: date })
-            
-            console.log('📡 Resultado RPC:', { rpcData, rpcError })
-            
-            if (!rpcError && rpcData) {
-              // A função RPC retorna {hora: string}[]
-              bookedSlots = rpcData.map((slot: {hora: string}) => ({
-                hora: slot.hora,
-                status: 'agendado'
-              }))
-              error = null
-              console.log('✅ Usando RPC get_booked_slots:', { rpcData, bookedSlots })
-            } else {
-              throw rpcError
-            }
-          } catch (rpcErr: unknown) {
-            console.log('⚠️ RPC falhou:', rpcErr)
-            // Se a RPC falhar, mas a query direta não retornou erro, usar array vazio
-            if (!directError) {
-              bookedSlots = []
-              console.log('⚙️ Usando array vazio para horários ocupados')
-            } else {
-              error = directError || rpcErr
-            }
+        if (error) throw error
+        return data || []
+      })
+
+      const bookedHours = bookedAppointments.map(slot => slot.hora)
+      return availableHours.filter(hour => !bookedHours.includes(hour))
+    } catch (err) {
+      console.error('Erro ao buscar horários disponíveis:', err)
+      return []
+    }
+  }, [workingHours])
+
+  // Buscar todos os horários com status otimizado
+  const getAllSlotsWithStatus = useCallback(async (date: string, barberId: string) => {
+    try {
+      let allHours: string[] = []
+      
+      // Tentar API primeiro
+      try {
+        const response = await fetch(`/api/available-hours/slots?date=${date}&barber_id=${barberId}`)
+        if (response.ok) {
+          const apiData = await response.json()
+          if (apiData?.length > 0) {
+            allHours = apiData
           }
         }
-      } catch (err: unknown) {
+      } catch {
+        // Continuar com RPC
+      }
+      
+      // Se API falhou, tentar RPC
+      if (allHours.length === 0) {
+        try {
+          const { data, error } = await supabase
+            .rpc('get_barber_availability', { 
+              p_barber_id: barberId, 
+              p_date: date 
+            })
+          
+          if (!error && data?.length > 0) {
+            allHours = data
+          }
+        } catch {
+          // Usar horários padrão
+        }
+      }
+      
+      // Fallback para horários padrão
+      if (allHours.length === 0) {
+        const dayOfWeek = new Date(date).getDay()
+        if (dayOfWeek === 0) {
+          allHours = workingHours.sunday
+        } else if (dayOfWeek === 6) {
+          allHours = workingHours.saturday
+        } else {
+          allHours = workingHours.weekday
+        }
+      }
+
+      // Buscar horários ocupados com retry
+      let bookedHours: string[] = []
+      
+      try {
+        const bookedSlots = await retryWithBackoff(async () => {
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('hora')
+            .eq('barber_id', barberId)
+            .eq('data', date)
+            .in('status', ['agendado', 'confirmado', 'pendente'])
+          
+          if (error) throw error
+          return data || []
+        })
+        
+        bookedHours = bookedSlots.map(slot => slot.hora)
+      } catch (err) {
         console.error('Erro ao buscar agendamentos:', err)
-        bookedSlots = []
-        error = err
+        // Em caso de erro, assumir todos disponíveis
       }
       
-      console.log('Resultado da query completa:', { bookedSlots, error })
-      console.log('Total de agendamentos encontrados:', bookedSlots?.length || 0)
-      
-      if (error) {
-        console.error('Erro ao buscar agendamentos:', error)
-        // Se houver erro, assumir que todos os horários estão disponíveis
-        return allHours.map((hour: string) => ({
-          time: hour,
-          isAvailable: true
-        }))
-      }
-      
-      // Extrair apenas os horários ocupados
-      const bookedHours = bookedSlots?.map((slot: { hora: string }) => slot.hora) || []
-      
-      console.log('Horários ocupados extraídos:', bookedHours)
-      
-      // Retornar todos os horários com status real
-      const slotsWithStatus = allHours.map(hour => ({
+      return allHours.map(hour => ({
         time: hour,
         isAvailable: !bookedHours.includes(hour)
       }))
-      
-      console.log('Horários com status final:', slotsWithStatus)
-      
-      return slotsWithStatus
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('Erro ao buscar horários com status:', err)
       return []
     }
-  }
+  }, [workingHours])
 
   // Configurar realtime
   useEffect(() => {
@@ -528,7 +467,7 @@ export function useAppointments() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, isAdmin])
+  }, [user, isAdmin, fetchAppointments])
 
   return {
     appointments,

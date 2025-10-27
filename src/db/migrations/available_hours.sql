@@ -67,34 +67,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Criar função para verificar disponibilidade de horários
+-- Criar função para verificar disponibilidade de horários (otimizada)
 CREATE OR REPLACE FUNCTION public.get_barber_availability(p_barber_id UUID, p_date DATE)
 RETURNS TABLE (
   time_slot TIME,
   is_available BOOLEAN
 ) AS $$
-DECLARE
-  booked_slots TIME[];
 BEGIN
-  -- Obter horários já agendados
-  SELECT array_agg(hora::TIME) INTO booked_slots 
-  FROM public.appointments 
-  WHERE barber_id = p_barber_id 
-  AND data = p_date 
-  AND status = 'agendado';
-  
-  -- Se não houver agendamentos, definir como array vazio
-  IF booked_slots IS NULL THEN
-    booked_slots := '{}'::TIME[];
-  END IF;
-  
-  -- Retornar todos os horários disponíveis com status
+  -- Retornar todos os horários disponíveis com status usando LEFT JOIN para melhor performance
   RETURN QUERY 
   SELECT 
     avail.time_slot,
-    NOT (avail.time_slot = ANY(booked_slots)) AS is_available
+    (apt.hora IS NULL) AS is_available
   FROM 
     public.get_available_slots(p_barber_id, p_date) avail
+  LEFT JOIN public.appointments apt ON (
+    apt.barber_id = p_barber_id 
+    AND apt.data = p_date 
+    AND apt.hora::TIME = avail.time_slot 
+    AND apt.status = 'agendado'
+  )
   ORDER BY 
     avail.time_slot;
     

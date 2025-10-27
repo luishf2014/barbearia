@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/lib/supabase'
 import { useAuth } from './useAuth'
@@ -8,6 +8,39 @@ import { useAuth } from './useAuth'
 type AvailableHour = Database['public']['Tables']['available_hours']['Row']
 type AvailableHourInsert = Database['public']['Tables']['available_hours']['Insert']
 type AvailableHourUpdate = Database['public']['Tables']['available_hours']['Update']
+
+// Cache global para horários disponíveis
+let availableHoursCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 2 * 60 * 1000 // 2 minutos
+const MAX_RETRIES = 3
+const INITIAL_BACKOFF = 500
+const MAX_BACKOFF = 5000
+
+// Função de retry com backoff exponencial
+const retryWithBackoff = async <T>(fn: () => Promise<T>): Promise<T> => {
+  let retries = 0
+  let backoff = INITIAL_BACKOFF
+  
+  while (retries <= MAX_RETRIES) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      if (retries === MAX_RETRIES) throw error
+      
+      // Verificar se é erro de rate limit
+      if (error?.message?.includes('rate limit') || error?.code === 'PGRST301') {
+        console.log(`Rate limit reached. Retrying in ${backoff}ms (${retries + 1}/${MAX_RETRIES})`)
+        await new Promise(resolve => setTimeout(resolve, backoff))
+        backoff = Math.min(backoff * 2, MAX_BACKOFF)
+        retries++
+      } else {
+        throw error
+      }
+    }
+  }
+  
+  throw new Error('Max retries exceeded')
+}
 
 export interface DaySchedule {
   dayOfWeek: number
@@ -27,20 +60,47 @@ export function useAvailableHours() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Buscar horários disponíveis para um barbeiro
-  const fetchBarberAvailableHours = async (barberId: string) => {
+  // Função para invalidar cache
+  const invalidateCache = useCallback((key?: string) => {
+    if (key) {
+      availableHoursCache.delete(key)
+    } else {
+      availableHoursCache.clear()
+    }
+  }, [])
+
+  // Buscar horários disponíveis para um barbeiro com cache
+  const fetchBarberAvailableHours = async (barberId: string, forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
-
-      const response = await fetch(`/api/available-hours?barber_id=${barberId}`)
       
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`)
+      const cacheKey = `barber_hours_${barberId}`
+      const now = Date.now()
+      
+      // Verificar cache
+      if (!forceRefresh) {
+        const cached = availableHoursCache.get(cacheKey)
+        if (cached && (now - cached.timestamp) < CACHE_TTL) {
+          setAvailableHours(cached.data || [])
+          setLoading(false)
+          return cached.data
+        }
       }
-      
-      const data = await response.json()
 
+      const data = await retryWithBackoff(async () => {
+        const response = await fetch(`/api/available-hours?barber_id=${barberId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`)
+        }
+        
+        return await response.json()
+      })
+
+      // Atualizar cache
+      availableHoursCache.set(cacheKey, { data: data || [], timestamp: now })
+      
       setAvailableHours(data || [])
       return data
     } catch (err) {
@@ -52,29 +112,37 @@ export function useAvailableHours() {
     }
   }
 
-  // Criar um novo horário disponível
+  // Criar um novo horário disponível com retry
   const createAvailableHour = async (hourData: AvailableHourInsert) => {
     try {
       if (!isAdmin) {
         throw new Error('Apenas administradores podem gerenciar horários')
       }
 
+      setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/available-hours', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(hourData),
+      const data = await retryWithBackoff(async () => {
+        const response = await fetch('/api/available-hours', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(hourData),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+        }
+
+        return await response.json()
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+      // Invalidar cache relacionado
+      if (hourData.barber_id) {
+        invalidateCache(`barber_hours_${hourData.barber_id}`)
       }
-
-      const data = await response.json()
 
       // Atualizar lista local
       setAvailableHours(prev => [...prev, data])
@@ -84,32 +152,42 @@ export function useAvailableHours() {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar horário disponível'
       setError(errorMessage)
       return { data: null, error: errorMessage }
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Atualizar um horário disponível
+  // Atualizar um horário disponível com retry
   const updateAvailableHour = async (hourId: string, updates: AvailableHourUpdate) => {
     try {
       if (!isAdmin) {
         throw new Error('Apenas administradores podem gerenciar horários')
       }
 
+      setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/available-hours', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id: hourId, ...updates }),
+      const data = await retryWithBackoff(async () => {
+        const response = await fetch('/api/available-hours', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: hourId, ...updates }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+        }
+
+        return await response.json()
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+      // Invalidar cache relacionado
+      if (updates.barber_id) {
+        invalidateCache(`barber_hours_${updates.barber_id}`)
       }
-
-      const data = await response.json()
 
       // Atualizar lista local
       setAvailableHours(prev => 
@@ -121,6 +199,8 @@ export function useAvailableHours() {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar horário disponível'
       setError(errorMessage)
       return { data: null, error: errorMessage }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -197,7 +277,7 @@ export function useAvailableHours() {
         }
         
         // Se não houver dados ou ocorrer erro, buscar da API
-        const response = await fetch(`/api/available-hours/slots?barber_id=${barberId}&date=${date}`)
+        const response = await fetch(`/api/available-hours/slots?date=${date}&barber_id=${barberId}`)
         
         if (!response.ok) {
           throw new Error(`Erro ${response.status}: ${response.statusText}`)
@@ -238,6 +318,7 @@ export function useAvailableHours() {
     createAvailableHour,
     updateAvailableHour,
     deleteAvailableHour,
+    invalidateCache,
     getScheduleByDay,
     getAvailableSlotsForDate
   }

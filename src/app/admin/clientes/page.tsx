@@ -1,84 +1,126 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/hooks/useAuth';
-import { Database } from '@/lib/supabase';
-
-type User = Database['public']['Tables']['users']['Row'];
+import { Button } from '@/components/ui/button';
+import { useClients } from '@/hooks/useClients';
+import { useDebounce } from '@/hooks/useDebounce';
+import { Search, Users, Mail, Calendar } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 export default function ClientesPage() {
-  const { getAllUsers } = useAuth();
-  const [clients, setClients] = useState<User[]>([]);
+  const { clients, loading, error, refreshClients } = useClients();
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  
+  // Debounce do termo de busca para melhorar performance
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  useEffect(() => {
-    loadClients();
-  }, []);
+  // Debug logs
+  console.log('🏠 ClientesPage render:', { clients, loading, error, clientsLength: clients?.length });
 
-  const loadClients = async () => {
-    try {
-      const users = await getAllUsers();
-      setClients(users.filter(user => user.tipo === 'cliente'));
-    } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredClients = clients.filter(client =>
-    client.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p>Carregando clientes...</p>
-      </div>
+  // Memoizar filtragem para evitar recálculos desnecessários
+  const filteredClients = useMemo(() => {
+    if (!clients) return [];
+    if (!debouncedSearchTerm.trim()) return clients;
+    
+    return clients.filter(client => 
+      client.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     );
-  }
+  }, [clients, debouncedSearchTerm]);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Clientes</h1>
+    <div className="min-h-screen bg-slate-900 px-6">
+      <Toaster richColors position="top-right" />
+      
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-slate-900 via-gray-900 to-black py-10 px-8 rounded-xl mb-12 border border-slate-800">
+        <div className="max-w-4xl mx-auto">
+          <div className="inline-flex items-center space-x-3 mb-4">
+            <div className="bg-white rounded-full p-2">
+              <Users className="h-6 w-6 text-slate-900" />
+            </div>
+            <h1 className="text-3xl font-bold text-white font-oswald">GERENCIAR CLIENTES</h1>
+          </div>
+          <p className="text-xl text-white/80">
+            Visualize e gerencie todos os clientes da barbearia
+          </p>
+        </div>
       </div>
 
-      <div className="mb-6">
-        <Input
-          placeholder="Buscar por nome ou email"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+      <Card className="mb-6 bg-slate-800 border-slate-700 overflow-hidden hover:border-slate-600 transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-white">Filtrar Clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-white/60" />
+            <Input
+              placeholder="Buscar por nome ou email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 bg-slate-700 border-slate-600 text-white placeholder:text-white/50 focus:border-slate-500"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid gap-4">
-        {filteredClients.length === 0 ? (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">
-                Nenhum cliente encontrado.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredClients.map(client => (
-            <Card key={client.id}>
+      {loading ? (
+        <div className="text-center py-20 text-white/60 bg-slate-700/30 rounded-xl border border-slate-700">
+          <div className="animate-pulse flex flex-col items-center">
+            <Users className="h-16 w-16 mx-auto mb-4 text-white/40" />
+            <p className="font-medium text-lg text-white">Carregando clientes...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="text-center py-20 text-red-400 bg-slate-700/30 rounded-xl border border-red-900">
+          <div className="flex flex-col items-center">
+            <Users className="h-16 w-16 mx-auto mb-4 text-red-400" />
+            <p className="font-medium text-lg text-white">{error}</p>
+            <Button 
+              onClick={refreshClients}
+              variant="outline"
+              className="mt-4 bg-red-900/20 border-red-900 text-white hover:bg-red-900/40"
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredClients.map(client => (
+            <Card key={client.id} className="bg-slate-800 border-slate-700 overflow-hidden hover:border-slate-600 transition-all duration-300 hover:shadow-lg hover:shadow-slate-900/50">
               <CardContent className="p-6">
-                <div className="space-y-1">
-                  <h3 className="font-semibold">{client.nome}</h3>
-                  <p className="text-sm text-muted-foreground">{client.email}</p>
+                <div className="space-y-3">
+                  <h2 className="font-semibold text-white text-lg">{client.nome || 'Cliente sem nome'}</h2>
+                  <div className="flex items-center text-sm text-white/60">
+                    <Mail className="h-3 w-3 mr-2" />
+                    <span>{client.email}</span>
+                  </div>
+
+                  <div className="flex items-center text-sm text-white/60">
+                    <Calendar className="h-3 w-3 mr-2" />
+                    <span>Cliente desde: {new Date(client.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+
+          {!loading && filteredClients.length === 0 && (
+            <div className="text-center py-20 text-white/60 bg-slate-700/30 rounded-xl border border-slate-700 col-span-full">
+              <Users className="h-16 w-16 mx-auto mb-4 text-white/40" />
+              <p className="font-medium text-lg text-white">
+                {searchTerm
+                  ? 'Nenhum cliente encontrado com o termo de busca'
+                  : 'Nenhum cliente cadastrado'}
+              </p>
+              <p className="text-sm mt-2">Os clientes aparecerão aqui quando forem cadastrados</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export async function GET() {
     if (error) throw error;
 
     return NextResponse.json(clients);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao buscar clientes' },
       { status: 500 }
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(profile);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao criar cliente' },
       { status: 500 }
@@ -168,7 +168,7 @@ export async function PATCH(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(client);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao atualizar cliente' },
       { status: 500 }

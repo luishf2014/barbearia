@@ -7,56 +7,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('either NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY env variables or supabaseUrl and supabaseKey are required!')
 }
 
-// Configuração para lidar com limite de taxa
-const retryConfig = {
-  maxRetries: 3,
-  initialBackoffMs: 500,
-  maxBackoffMs: 10000
-}
-
-// Cliente para uso no browser com configuração de retry
+// Cliente para uso no browser - configuração com cookies
 export const supabase = createClientComponentClient({
-  supabaseUrl,
-  supabaseKey: supabaseAnonKey,
-  options: {
-    global: {
-      fetch: async (url, options) => {
-        let retries = 0
-        let backoffMs = retryConfig.initialBackoffMs
-        
-        while (true) {
-          try {
-            const response = await fetch(url, options)
-            
-            // Se receber erro de limite de taxa, tenta novamente
-            if (response.status === 429 && retries < retryConfig.maxRetries) {
-              retries++
-              console.log(`Rate limit reached. Retrying in ${backoffMs}ms (${retries}/${retryConfig.maxRetries})`)
-              
-              // Espera com backoff exponencial
-              await new Promise(resolve => setTimeout(resolve, backoffMs))
-              
-              // Aumenta o tempo de espera para a próxima tentativa (backoff exponencial)
-              backoffMs = Math.min(backoffMs * 2, retryConfig.maxBackoffMs)
-              continue
-            }
-            
-            return response
-          } catch (error) {
-            if (retries < retryConfig.maxRetries) {
-              retries++
-              console.log(`Fetch error. Retrying in ${backoffMs}ms (${retries}/${retryConfig.maxRetries})`, error)
-              
-              await new Promise(resolve => setTimeout(resolve, backoffMs))
-              backoffMs = Math.min(backoffMs * 2, retryConfig.maxBackoffMs)
-              continue
-            }
-            throw error
-          }
-        }
-      }
-    }
-  }
+  cookieOptions: {
+    name: 'sb-ypuvirwpnyppgszuwwol-auth-token',
+    domain: typeof window !== 'undefined' ? window.location.hostname : undefined,
+    sameSite: 'lax',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production'
+  },
+  // Forçar sincronização com cookies do servidor
+  isSingleton: true
 })
 
 // Função para determinar o redirecionamento após login
@@ -151,8 +112,10 @@ export interface Database {
           barber_id: string
           data: string
           hora: string
-          status: 'agendado' | 'cancelado'
+          status: 'agendado' | 'cancelado' | 'confirmado' | 'pendente'
           created_at: string
+          service_id?: string
+          preco?: number
         }
         Insert: {
           id?: string
@@ -160,8 +123,10 @@ export interface Database {
           barber_id: string
           data: string
           hora: string
-          status?: 'agendado' | 'cancelado'
+          status?: 'agendado' | 'cancelado' | 'confirmado' | 'pendente'
           created_at?: string
+          service_id?: string
+          preco?: number
         }
         Update: {
           id?: string
@@ -169,8 +134,10 @@ export interface Database {
           barber_id?: string
           data?: string
           hora?: string
-          status?: 'agendado' | 'cancelado'
+          status?: 'agendado' | 'cancelado' | 'confirmado' | 'pendente'
           created_at?: string
+          service_id?: string
+          preco?: number
         }
       }
       available_hours: {
@@ -206,6 +173,64 @@ export interface Database {
           is_active?: boolean
           created_at?: string
           updated_at?: string
+        }
+      }
+      business_hours: {
+        Row: {
+          id: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          interval_minutes: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          interval_minutes?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          day_of_week?: number
+          start_time?: string
+          end_time?: string
+          interval_minutes?: number
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      services: {
+        Row: {
+          id: string
+          nome: string
+          preco: number
+          duracao: number
+          descricao?: string
+          ativo: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          preco: number
+          duracao: number
+          descricao?: string
+          ativo?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          preco?: number
+          duracao?: number
+          descricao?: string
+          ativo?: boolean
+          created_at?: string
         }
       }
     }

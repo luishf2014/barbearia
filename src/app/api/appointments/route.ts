@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
         id,
         cliente_id,
         barber_id,
-        date,
-        time,
+        data,
+        hora,
         status,
         created_at
       `)
-      .order('date')
-      .order('time');
+      .order('data')
+      .order('hora');
 
     // Se não for admin, filtrar apenas os agendamentos do próprio usuário
     if (!user || user.tipo !== 'admin') {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(appointments);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao buscar agendamentos' },
       { status: 500 }
@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
       .from('appointments')
       .select()
       .eq('barber_id', barberId)
-      .eq('date', date)
-      .eq('time', time)
+      .eq('data', date)
+      .eq('hora', time)
       .eq('status', 'agendado')
       .maybeSingle();
 
@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       .insert([{
         cliente_id: appointmentClientId,
         barber_id: barberId,
-        date,
-        time,
+        data: date,
+        hora: time,
         status: 'agendado'
       }])
       .select()
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json(appointment);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao criar agendamento' },
       { status: 500 }
@@ -181,7 +181,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(appointment);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Erro ao atualizar agendamento' },
       { status: 500 }

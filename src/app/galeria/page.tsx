@@ -58,23 +58,23 @@ export default function GaleriaPage() {
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-slate-900 via-gray-900 to-black py-16">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center space-x-3 mb-6">
-            <div className="bg-white rounded-full p-3">
-              <Camera className="h-8 w-8 text-slate-900" />
+      <div className="bg-gradient-to-br from-slate-900 via-gray-900 to-black py-12 md:py-16">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 text-center">
+          <div className="inline-flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-6">
+            <div className="bg-white rounded-full p-2 md:p-3">
+              <Camera className="h-6 w-6 md:h-8 md:w-8 text-slate-900" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white font-oswald">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white font-oswald">
               NOSSA GALERIA
             </h1>
           </div>
-          <p className="text-xl text-white/80 mb-8">
+          <p className="text-lg md:text-xl text-white/80 mb-6 md:mb-8 px-4">
             Conheça alguns dos nossos trabalhos e estilos disponíveis na Camisa 10 Barbearia
           </p>
           {!user && (
             <Link href="/login">
-              <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100 font-bold px-8 py-3 rounded-lg transition-all duration-300 flex items-center space-x-2 mx-auto w-fit">
-                <Scissors className="h-5 w-5" />
+              <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100 font-bold px-6 md:px-8 py-3 rounded-lg transition-all duration-300 flex items-center space-x-2 mx-auto w-fit text-sm md:text-base">
+                <Scissors className="h-4 w-4 md:h-5 md:w-5" />
                 <span>AGENDE SEU HORÁRIO</span>
               </Button>
             </Link>
@@ -82,9 +82,9 @@ export default function GaleriaPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {galleryItems.map((item, index) => {
             const icons = [Scissors, Star, Sparkles, Award, Heart, Camera];
             const IconComponent = icons[index % icons.length];
@@ -94,19 +94,19 @@ export default function GaleriaPage() {
                 <CardContent className="p-0">
                   <div className="relative">
                     <div
-                      className="h-64 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                      className="h-48 md:h-64 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
                       style={{ backgroundImage: `url(${item.imageUrl})` }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div className="absolute top-4 left-4">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-2">
-                        <IconComponent className="h-5 w-5 text-slate-900" />
+                    <div className="absolute top-3 left-3 md:top-4 md:left-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 md:p-2">
+                        <IconComponent className="h-4 w-4 md:h-5 md:w-5 text-slate-900" />
                       </div>
                     </div>
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-white font-oswald mb-2">{item.title}</h3>
-                    <p className="text-white/70 mb-4 leading-relaxed">{item.description}</p>
+                  <div className="p-4 md:p-6">
+                    <h3 className="text-lg md:text-xl font-bold text-white font-oswald mb-2">{item.title}</h3>
+                    <p className="text-sm md:text-base text-white/70 mb-3 md:mb-4 leading-relaxed">{item.description}</p>
                     <div className="flex flex-wrap gap-2">
                       {item.tags.map((tag) => {
                         const tagColors: { [key: string]: string } = {
@@ -137,33 +137,35 @@ export default function GaleriaPage() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-black py-12 mt-16">
-        <div className="max-w-6xl mx-auto px-6">
+      <footer className="bg-black py-8 sm:py-12 mt-12 sm:mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center">
-            <div className="flex items-center justify-center space-x-3 mb-6">
-              <div className="bg-white rounded-full p-3">
-                <Scissors className="h-8 w-8 text-black" />
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-3 mb-4 sm:mb-6">
+              <div className="bg-white rounded-full p-2 sm:p-3">
+                <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-black" />
               </div>
-              <h3 className="text-3xl font-bold text-white font-oswald">CAMISA 10 BARBEARIA</h3>
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-oswald text-center sm:text-left">
+                CAMISA 10 BARBEARIA
+              </h3>
             </div>
-            <p className="text-white/80 text-lg mb-8">
+            <p className="text-white/80 text-base sm:text-lg mb-6 sm:mb-8 px-4">
               Tradição e estilo em cada corte
             </p>
-            <div className="grid md:grid-cols-3 gap-8 text-white/70">
-              <div>
-                <h4 className="font-bold text-white mb-2">📍 ENDEREÇO</h4>
-                <p>Rua das Tesouras, 123</p>
-                <p>Centro - São Paulo/SP</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 text-white/70">
+              <div className="text-center sm:text-left">
+                <h4 className="font-bold text-white mb-2 text-sm sm:text-base">📍 ENDEREÇO</h4>
+                <p className="text-sm sm:text-base">Rua das Tesouras, 123</p>
+                <p className="text-sm sm:text-base">Centro - São Paulo/SP</p>
               </div>
-              <div>
-                <h4 className="font-bold text-white mb-2">📞 CONTATO</h4>
-                <p>(11) 99999-9999</p>
-                <p>contato@camisa10barbearia.com</p>
+              <div className="text-center sm:text-left">
+                <h4 className="font-bold text-white mb-2 text-sm sm:text-base">📞 CONTATO</h4>
+                <p className="text-sm sm:text-base">(11) 99999-9999</p>
+                <p className="text-sm sm:text-base break-all sm:break-normal">contato@camisa10barbearia.com</p>
               </div>
-              <div>
-                <h4 className="font-bold text-white mb-2">🕒 FUNCIONAMENTO</h4>
-                <p>Segunda à Sexta: 9h às 19h</p>
-                <p>Sábado: 8h às 17h</p>
+              <div className="text-center sm:text-left sm:col-span-2 md:col-span-1">
+                <h4 className="font-bold text-white mb-2 text-sm sm:text-base">🕒 FUNCIONAMENTO</h4>
+                <p className="text-sm sm:text-base">Segunda à Sexta: 9h às 19h</p>
+                <p className="text-sm sm:text-base">Sábado: 8h às 17h</p>
               </div>
             </div>
           </div>

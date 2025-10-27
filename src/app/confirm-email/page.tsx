@@ -4,13 +4,11 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
 function ConfirmEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
@@ -57,21 +55,21 @@ function ConfirmEmailContent() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 min-h-[calc(100vh-4rem)] flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>
+    <div className="container mx-auto py-6 sm:py-8 px-4 sm:px-6 min-h-[calc(100vh-4rem)] flex items-center justify-center">
+      <Card className="w-full max-w-sm sm:max-w-md">
+        <CardHeader className="text-center px-4 sm:px-6">
+          <CardTitle className="text-xl sm:text-2xl">
             {status === 'loading' && 'Confirmando e-mail...'}
             {status === 'success' && 'E-mail confirmado!'}
             {status === 'error' && 'Erro na confirmação'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm sm:text-base">
             {status === 'loading' && 'Aguarde enquanto confirmamos seu e-mail.'}
             {status === 'success' && 'Sua conta foi ativada com sucesso.'}
             {status === 'error' && 'Não foi possível confirmar seu e-mail.'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6">
           {status === 'loading' && (
             <div className="flex justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -80,13 +78,13 @@ function ConfirmEmailContent() {
           
           {status !== 'loading' && (
             <>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center px-2">
                 {message}
               </p>
               
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 sm:gap-3">
                 {status === 'success' && (
-                  <Button onClick={handleGoToLogin} className="w-full">
+                  <Button onClick={handleGoToLogin} className="w-full h-9 sm:h-10 text-sm sm:text-base">
                     Fazer Login
                   </Button>
                 )}
@@ -94,7 +92,7 @@ function ConfirmEmailContent() {
                 <Button 
                   variant={status === 'success' ? 'outline' : 'default'} 
                   onClick={handleGoToHome} 
-                  className="w-full"
+                  className="w-full h-9 sm:h-10 text-sm sm:text-base"
                 >
                   Voltar ao Início
                 </Button>
@@ -110,15 +108,15 @@ function ConfirmEmailContent() {
 export default function ConfirmEmailPage() {
   return (
     <Suspense fallback={
-      <div className="container mx-auto py-8 px-4 min-h-[calc(100vh-4rem)] flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Carregando...</CardTitle>
-            <CardDescription>Aguarde enquanto carregamos a página.</CardDescription>
+      <div className="container mx-auto py-6 sm:py-8 px-4 sm:px-6 min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <Card className="w-full max-w-sm sm:max-w-md">
+          <CardHeader className="text-center px-4 sm:px-6">
+            <CardTitle className="text-xl sm:text-2xl">Carregando...</CardTitle>
+            <CardDescription className="text-sm sm:text-base">Aguarde enquanto carregamos a página.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6">
             <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary"></div>
             </div>
           </CardContent>
         </Card>
