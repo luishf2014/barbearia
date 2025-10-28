@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useBarbers } from '@/hooks/useBarbers';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useClients } from '@/hooks/useClients';
+import type { Client } from '@/hooks/useClients';
 import { useSchedule } from '@/hooks/useSchedule';
 import { addDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -112,7 +113,7 @@ export default function NovoAgendamentoPage() {
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                  {clients.map(client => (
+                  {clients.map((client: Client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.nome}
                     </SelectItem>

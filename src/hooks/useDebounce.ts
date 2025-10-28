@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import type { DependencyList } from 'react'; // CHATGPT: alterei aqui (import de tipo para deps)
 
 /**
  * Hook personalizado para implementar debounce em valores
@@ -29,10 +30,10 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
  * @param deps - Dependências do callback
  * @returns Função debounced
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>( // CHATGPT: alterei aqui (substituí any por unknown)
   callback: T,
   delay: number = 300,
-  deps: React.DependencyList = []
+  deps: DependencyList = [] // CHATGPT: alterei aqui (uso de tipo importado)
 ): T {
   const [debouncedCallback, setDebouncedCallback] = useState<T | null>(null);
 
@@ -45,7 +46,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
       clearTimeout(handler);
       setDebouncedCallback(null);
     };
-  }, [callback, delay, ...deps]);
+  }, [callback, delay, JSON.stringify(deps)]); // CHATGPT: alterei aqui (evitei spread na lista de deps)
 
   return (debouncedCallback || callback) as T;
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useClients } from '@/hooks/useClients';
+import type { Client } from '@/hooks/useClients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Search, Users, Mail, Calendar } from 'lucide-react';
 import { Toaster } from 'sonner';
@@ -24,7 +25,7 @@ export default function ClientesPage() {
     if (!clients) return [];
     if (!debouncedSearchTerm.trim()) return clients;
     
-    return clients.filter(client => 
+    return clients.filter((client: Client) => 
       client.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       client.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     );
@@ -89,7 +90,7 @@ export default function ClientesPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map(client => (
+          {filteredClients.map((client: Client) => (
             <Card key={client.id} className="bg-slate-800 border-slate-700 overflow-hidden hover:border-slate-600 transition-all duration-300 hover:shadow-lg hover:shadow-slate-900/50">
               <CardContent className="p-6">
                 <div className="space-y-3">

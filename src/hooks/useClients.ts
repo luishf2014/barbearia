@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react' // CHATGPT: alterei aqui (removi React não utilizado)
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 type Client = {
   id: string
@@ -13,25 +13,25 @@ type Client = {
 }
 
 export function useClients() {
-  console.log('🎯 useClients hook inicializado')
+  console.log('ðŸŽ¯ useClients hook inicializado')
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
   const supabase = createClientComponentClient()
-  console.log('🔗 Cliente Supabase criado:', !!supabase)
-  console.log('🌐 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log('🔑 Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  console.log('ðŸ”— Cliente Supabase criado:', !!supabase)
+  console.log('ðŸŒ Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log('ðŸ”‘ Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   
-  console.log('📍 Antes do useEffect - hook inicializado')
-  console.log('📍 useEffect está definido?', typeof useEffect)
+  console.log('ðŸ“ Antes do useEffect - hook inicializado')
+  console.log('ðŸ“ useEffect estÃ¡ definido?', typeof useEffect)
 
   const fetchClients = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       
-      console.log('🔍 Buscando clientes...')
+      console.log('ðŸ” Buscando clientes...')
       
       const { data, error } = await supabase
         .from('users')
@@ -40,14 +40,14 @@ export function useClients() {
         .order('nome', { ascending: true })
       
       if (error) {
-        console.error('❌ Erro ao buscar clientes:', error)
+        console.error('âŒ Erro ao buscar clientes:', error)
         throw error
       }
       
-      console.log('✅ Clientes encontrados:', data?.length || 0)
+      console.log('âœ… Clientes encontrados:', data?.length || 0)
       setClients(data || [])
     } catch (err) {
-      console.error('❌ Erro no fetchClients:', err)
+      console.error('âŒ Erro no fetchClients:', err)
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setLoading(false)
@@ -59,13 +59,13 @@ export function useClients() {
   }
 
   useEffect(() => {
-    console.log('🚀 useEffect executado - buscando clientes')
-    console.log('🔄 useEffect: Iniciando fetchClients')
+    console.log('ðŸš€ useEffect executado - buscando clientes')
+    console.log('ðŸ”„ useEffect: Iniciando fetchClients')
     fetchClients()
-    console.log('🔄 useEffect: fetchClients chamado')
+    console.log('ðŸ”„ useEffect: fetchClients chamado')
   }, [fetchClients])
   
-  console.log('📍 Depois do useEffect - retornando dados')
+  console.log('ðŸ“ Depois do useEffect - retornando dados')
 
   return {
     clients,

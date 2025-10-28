@@ -21,14 +21,18 @@ const retryWithBackoff = async <T>(
 ): Promise<T> => {
   try {
     return await fn();
-  } catch (error: any) {
-    if (retries > 0 && error?.message?.includes('rate limit')) {
+  } catch (error: unknown) { // CHATGPT: alterei aqui (substituí any por unknown e tratei com segurança)
+    const message =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : '';
+    if (retries > 0 && message.includes('rate limit')) { // CHATGPT: alterei aqui (uso de mensagem derivada de unknown)
       const delay = Math.min(
         INITIAL_BACKOFF * Math.pow(2, MAX_RETRIES - retries),
         MAX_BACKOFF
       );
       
-      console.log(`⏳ Rate limit atingido, tentando novamente em ${delay}ms...`);
+      console.log(` Rate limit atingido, tentando novamente em ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return retryWithBackoff(fn, retries - 1);
     }
@@ -39,7 +43,7 @@ const retryWithBackoff = async <T>(
 // Função para buscar serviços
 const fetchServices = async (includeInactive = false): Promise<Service[]> => {
   return retryWithBackoff(async () => {
-    console.log('🔍 Buscando serviços no Supabase, includeInactive:', includeInactive);
+    console.log(' Buscando serviços no Supabase, includeInactive:', includeInactive);
     
     let query = supabase
       .from('services')
@@ -51,10 +55,10 @@ const fetchServices = async (includeInactive = false): Promise<Service[]> => {
     }
 
     const { data, error } = await query;
-    console.log('📊 Resultado busca serviços:', { data, error, count: data?.length });
+    console.log(' Resultado busca serviços:', { data, error, count: data?.length });
 
     if (error) {
-      console.error('❌ Erro na query de serviços:', error);
+      console.error(' Erro na query de serviços:', error);
       throw error;
     }
 
@@ -62,7 +66,19 @@ const fetchServices = async (includeInactive = false): Promise<Service[]> => {
   });
 };
 
-export function useServices(includeInactive = false) {
+type UseServicesResult = { // CHATGPT: alterei aqui (tipagem explícita e segura do retorno)
+  services: Service[];
+  loading: boolean;
+  error: unknown;
+  createService: (serviceData: ServiceInsert) => Promise<Service>;
+  updateService: (id: string, updates: ServiceUpdate) => Promise<Service>;
+  deleteService: (id: string) => Promise<void>;
+  reactivateService: (id: string) => Promise<void>;
+  refreshServices: () => Promise<void> | void;
+  invalidateCache: () => void;
+};
+
+export function useServices(includeInactive = false): UseServicesResult { // CHATGPT: alterei aqui (adicionada tipagem de retorno)
   const cacheKey = `services_${includeInactive ? 'all' : 'active'}`;
   
   const {
@@ -78,25 +94,25 @@ export function useServices(includeInactive = false) {
     {
       ttl: 10 * 60 * 1000, // 10 minutos - serviços mudam pouco
       enabled: true,
-      onSuccess: (data) => {
-        console.log('🎯 Serviços carregados com sucesso:', data.length);
+      onSuccess: (data: Service[]) => { // CHATGPT: alterei aqui (tipagem explícita do parâmetro)
+        console.log(' Serviços carregados com sucesso:', data.length);
       },
-      onError: (error) => {
-        console.error('❌ Erro ao carregar serviços:', error);
+      onError: (error: unknown) => { // CHATGPT: alterei aqui (tipagem explícita e segura)
+        console.error(' Erro ao carregar serviços:', error);
       }
     }
   );
 
   // Carregar dados automaticamente
   useEffect(() => {
-    console.log('🔄 useServices useEffect executado, includeInactive:', includeInactive);
+    console.log(' useServices useEffect executado, includeInactive:', includeInactive);
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, includeInactive]); // CHATGPT: alterei aqui (adicionado includeInactive às dependências)
 
   // Criar serviço
   const createService = useCallback(async (serviceData: ServiceInsert): Promise<Service> => {
     try {
-      console.log('➕ Criando serviço:', serviceData);
+      console.log(' Criando serviço:', serviceData);
       
       const result = await retryWithBackoff(async () => {
         const { data, error } = await supabase
@@ -106,17 +122,17 @@ export function useServices(includeInactive = false) {
           .single();
 
         if (error) throw error;
-        return data;
+        return data as Service; // CHATGPT: alterei aqui (tipagem explícita do retorno)
       });
 
-      console.log('✅ Serviço criado:', result);
+      console.log(' Serviço criado:', result);
       
       // Invalidar cache para forçar reload
       invalidate();
       
       return result;
     } catch (error) {
-      console.error('❌ Erro ao criar serviço:', error);
+      console.error(' Erro ao criar serviço:', error);
       throw error;
     }
   }, [invalidate]);
@@ -124,7 +140,7 @@ export function useServices(includeInactive = false) {
   // Atualizar serviço
   const updateService = useCallback(async (id: string, updates: ServiceUpdate): Promise<Service> => {
     try {
-      console.log('📝 Atualizando serviço:', { id, updates });
+      console.log(' Atualizando serviço:', { id, updates });
       
       const result = await retryWithBackoff(async () => {
         const { data, error } = await supabase
@@ -135,17 +151,17 @@ export function useServices(includeInactive = false) {
           .single();
 
         if (error) throw error;
-        return data;
+        return data as Service; // CHATGPT: alterei aqui (tipagem explícita do retorno)
       });
 
-      console.log('✅ Serviço atualizado:', result);
+      console.log(' Serviço atualizado:', result);
       
       // Invalidar cache para forçar reload
       invalidate();
       
       return result;
     } catch (error) {
-      console.error('❌ Erro ao atualizar serviço:', error);
+      console.error(' Erro ao atualizar serviço:', error);
       throw error;
     }
   }, [invalidate]);
@@ -153,7 +169,7 @@ export function useServices(includeInactive = false) {
   // Deletar serviço (soft delete)
   const deleteService = useCallback(async (id: string): Promise<void> => {
     try {
-      console.log('🗑️ Deletando serviço:', id);
+      console.log(' Deletando serviço:', id);
       
       await retryWithBackoff(async () => {
         const { error } = await supabase
@@ -164,12 +180,12 @@ export function useServices(includeInactive = false) {
         if (error) throw error;
       });
 
-      console.log('✅ Serviço deletado (soft delete)');
+      console.log(' Serviço deletado (soft delete)');
       
       // Invalidar cache para forçar reload
       invalidate();
     } catch (error) {
-      console.error('❌ Erro ao deletar serviço:', error);
+      console.error(' Erro ao deletar serviço:', error);
       throw error;
     }
   }, [invalidate]);
@@ -177,7 +193,7 @@ export function useServices(includeInactive = false) {
   // Reativar serviço
   const reactivateService = useCallback(async (id: string): Promise<void> => {
     try {
-      console.log('🔄 Reativando serviço:', id);
+      console.log(' Reativando serviço:', id);
       
       await retryWithBackoff(async () => {
         const { error } = await supabase
@@ -188,12 +204,12 @@ export function useServices(includeInactive = false) {
         if (error) throw error;
       });
 
-      console.log('✅ Serviço reativado');
+      console.log(' Serviço reativado');
       
       // Invalidar cache para forçar reload
       invalidate();
     } catch (error) {
-      console.error('❌ Erro ao reativar serviço:', error);
+      console.error(' Erro ao reativar serviço:', error);
       throw error;
     }
   }, [invalidate]);
@@ -204,8 +220,8 @@ export function useServices(includeInactive = false) {
   }, [invalidate]);
 
   // Refresh manual
-  const refreshServices = useCallback(() => {
-    return refresh();
+  const refreshServices = useCallback(async () => {
+    await refresh();
   }, [refresh]);
 
   return {

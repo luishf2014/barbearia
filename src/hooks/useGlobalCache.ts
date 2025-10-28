@@ -9,21 +9,21 @@ interface CacheItem<T> {
   ttl: number; // Time to live em milliseconds
 }
 
-// Interface para configuração do cache
+// Interface para configuraÃ§Ã£o do cache
 interface CacheConfig {
-  defaultTTL?: number; // TTL padrão em milliseconds
-  maxSize?: number; // Tamanho máximo do cache
+  defaultTTL?: number; // TTL padrÃ£o em milliseconds
+  maxSize?: number; // Tamanho mÃ¡ximo do cache
 }
 
 // Cache global singleton
 class GlobalCache {
-  private cache = new Map<string, CacheItem<any>>();
+  private cache = new Map<string, CacheItem<unknown>>() // CHATGPT: alterei aqui (substituí any por unknown no cache);
   private config: Required<CacheConfig>;
 
   constructor(config: CacheConfig = {}) {
     this.config = {
-      defaultTTL: config.defaultTTL || 5 * 60 * 1000, // 5 minutos padrão
-      maxSize: config.maxSize || 100 // 100 itens máximo
+      defaultTTL: config.defaultTTL || 5 * 60 * 1000, // 5 minutos padrÃ£o
+      maxSize: config.maxSize || 100 // 100 itens mÃ¡ximo
     };
   }
 
@@ -42,12 +42,12 @@ class GlobalCache {
       return null;
     }
 
-    return item.data;
+    return item.data as T;
   }
 
   // Definir item no cache
   set<T>(key: string, data: T, ttl?: number): void {
-    // Limpar cache se atingir o tamanho máximo
+    // Limpar cache se atingir o tamanho mÃ¡ximo
     if (this.cache.size >= this.config.maxSize) {
       this.clearExpired();
       
@@ -90,7 +90,7 @@ class GlobalCache {
     this.cache.clear();
   }
 
-  // Obter estatísticas do cache
+  // Obter estatÃ­sticas do cache
   getStats() {
     return {
       size: this.cache.size,
@@ -99,7 +99,7 @@ class GlobalCache {
     };
   }
 
-  // Verificar se uma chave existe e não expirou
+  // Verificar se uma chave existe e nÃ£o expirou
   has(key: string): boolean {
     const item = this.cache.get(key);
     if (!item) return false;
@@ -114,7 +114,7 @@ class GlobalCache {
   }
 }
 
-// Instância global do cache
+// InstÃ¢ncia global do cache
 const globalCache = new GlobalCache({
   defaultTTL: 5 * 60 * 1000, // 5 minutos
   maxSize: 200 // 200 itens
@@ -122,7 +122,7 @@ const globalCache = new GlobalCache({
 
 // Hook para usar o cache global
 export function useGlobalCache() {
-  const [, forceUpdate] = useState({});
+  const [, forceUpdate] = useState<object>({}); // CHATGPT: alterei aqui (tipagem explícita do estado para evitar {})
   const forceUpdateRef = useRef(() => forceUpdate({}));
 
   const get = useCallback(<T>(key: string): T | null => {
@@ -169,7 +169,7 @@ export function useGlobalCache() {
   };
 }
 
-// Hook para cache com fetch automático
+// Hook para cache com fetch automÃ¡tico
 export function useCachedData<T>(
   key: string,
   fetchFn: () => Promise<T>,
@@ -188,7 +188,7 @@ export function useCachedData<T>(
   const fetchData = useCallback(async (forceRefresh = false) => {
     if (options.enabled === false) return;
     
-    // Se já tem dados no cache e não é refresh forçado, usar cache
+    // Se jÃ¡ tem dados no cache e nÃ£o Ã© refresh forÃ§ado, usar cache
     if (!forceRefresh && has(key)) {
       const cachedData = get<T>(key);
       if (cachedData) {

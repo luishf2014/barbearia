@@ -23,6 +23,14 @@ export interface AppointmentWithDetails extends Appointment {
   }
 }
 
+// Tipo auxiliar para linha retornada pela query com relações aninhadas
+type AppointmentQueryRow = Appointment & {
+  barber?: Array<{ id: string; nome: string; status?: string }>
+  cliente?: Array<{ nome: string; email: string }>
+  service_id?: string | null
+  preco?: number | null
+}
+
 // Cache global para agendamentos
 let appointmentsCache: {
   data: AppointmentWithDetails[]
@@ -48,8 +56,12 @@ const retryWithBackoff = async <T>(
   while (retries <= maxRetries) {
     try {
       return await operation()
-    } catch (error: any) {
-      if (retries === maxRetries || !error?.message?.includes('rate limit')) {
+    } catch (error: unknown) {
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message?: string }).message ?? '')
+          : ''
+      if (retries === maxRetries || !message.includes('rate limit')) {
         throw error
       }
       
@@ -121,19 +133,25 @@ export function useAppointments() {
         return data || []
       })
 
-      // Transformar dados para o formato correto
-       const transformedData = data.map((appointment: any) => ({
-         ...appointment,
-         barber: appointment.barber?.[0] ? {
-           id: appointment.barber[0].id,
-           nome: appointment.barber[0].nome,
-           status: 'ativo' // Valor padrão já que não existe na tabela barbers
-         } : undefined,
-         cliente: appointment.cliente?.[0] ? {
-           nome: appointment.cliente[0].nome,
-           email: appointment.cliente[0].email
-         } : undefined
-       }))
+      // Transformar dados para o formato correto sem usar any
+      const transformedData: AppointmentWithDetails[] = (data as AppointmentQueryRow[]).map(
+        (appointment) => ({
+          ...appointment,
+          barber: appointment.barber?.[0]
+            ? {
+                id: appointment.barber[0].id,
+                nome: appointment.barber[0].nome,
+                status: 'ativo' // Valor padrão já que não existe na tabela barbers
+              }
+            : undefined,
+          cliente: appointment.cliente?.[0]
+            ? {
+                nome: appointment.cliente[0].nome,
+                email: appointment.cliente[0].email
+              }
+            : undefined
+        })
+      )
 
       // Atualizar cache
       appointmentsCache = {

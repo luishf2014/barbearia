@@ -9,14 +9,15 @@ type AvailableHour = Database['public']['Tables']['available_hours']['Row']
 type AvailableHourInsert = Database['public']['Tables']['available_hours']['Insert']
 type AvailableHourUpdate = Database['public']['Tables']['available_hours']['Update']
 
-// Cache global para horários disponíveis
-let availableHoursCache = new Map<string, { data: any; timestamp: number }>()
+// Cache global para horÃ¡rios disponÃ­veis
+const availableHoursCache = new Map<string, { data: AvailableHour[]; timestamp: number }>()
 const CACHE_TTL = 2 * 60 * 1000 // 2 minutos
 const MAX_RETRIES = 3
 const INITIAL_BACKOFF = 500
 const MAX_BACKOFF = 5000
 
-// Função de retry com backoff exponencial
+// FunÃ§Ã£o de retry com backoff exponencial
+// CHATGPT: Tipagem segura de erro como `unknown` com extração defensiva
 const retryWithBackoff = async <T>(fn: () => Promise<T>): Promise<T> => {
   let retries = 0
   let backoff = INITIAL_BACKOFF
@@ -24,17 +25,20 @@ const retryWithBackoff = async <T>(fn: () => Promise<T>): Promise<T> => {
   while (retries <= MAX_RETRIES) {
     try {
       return await fn()
-    } catch (error: any) {
-      if (retries === MAX_RETRIES) throw error
-      
-      // Verificar se é erro de rate limit
-      if (error?.message?.includes('rate limit') || error?.code === 'PGRST301') {
+    } catch (err: unknown) {
+      if (retries === MAX_RETRIES) throw err
+
+      const maybeObj = typeof err === 'object' && err ? (err as Record<string, unknown>) : null
+      const message = typeof maybeObj?.message === 'string' ? maybeObj.message : undefined
+      const code = typeof maybeObj?.code === 'string' ? maybeObj.code : undefined
+
+      if ((message && message.includes('rate limit')) || code === 'PGRST301') {
         console.log(`Rate limit reached. Retrying in ${backoff}ms (${retries + 1}/${MAX_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, backoff))
         backoff = Math.min(backoff * 2, MAX_BACKOFF)
         retries++
       } else {
-        throw error
+        throw err
       }
     }
   }
@@ -60,7 +64,7 @@ export function useAvailableHours() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Função para invalidar cache
+  // FunÃ§Ã£o para invalidar cache
   const invalidateCache = useCallback((key?: string) => {
     if (key) {
       availableHoursCache.delete(key)
@@ -69,7 +73,7 @@ export function useAvailableHours() {
     }
   }, [])
 
-  // Buscar horários disponíveis para um barbeiro com cache
+  // Buscar horÃ¡rios disponÃ­veis para um barbeiro com cache
   const fetchBarberAvailableHours = async (barberId: string, forceRefresh = false) => {
     try {
       setLoading(true)
@@ -95,7 +99,8 @@ export function useAvailableHours() {
           throw new Error(`Erro ${response.status}: ${response.statusText}`)
         }
         
-        return await response.json()
+        const json = await response.json()
+        return (json ?? []) as AvailableHour[]
       })
 
       // Atualizar cache
@@ -104,7 +109,7 @@ export function useAvailableHours() {
       setAvailableHours(data || [])
       return data
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar horários disponíveis'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar horÃ¡rios disponÃ­veis'
       setError(errorMessage)
       return null
     } finally {
@@ -112,11 +117,11 @@ export function useAvailableHours() {
     }
   }
 
-  // Criar um novo horário disponível com retry
+  // Criar um novo horÃ¡rio disponÃ­vel com retry
   const createAvailableHour = async (hourData: AvailableHourInsert) => {
     try {
       if (!isAdmin) {
-        throw new Error('Apenas administradores podem gerenciar horários')
+        throw new Error('Apenas administradores podem gerenciar horÃ¡rios')
       }
 
       setLoading(true)
@@ -136,7 +141,8 @@ export function useAvailableHours() {
           throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
         }
 
-        return await response.json()
+        const json = await response.json()
+        return (json ?? []) as AvailableHour[]
       })
 
       // Invalidar cache relacionado
@@ -145,11 +151,11 @@ export function useAvailableHours() {
       }
 
       // Atualizar lista local
-      setAvailableHours(prev => [...prev, data])
+      setAvailableHours(prev => [...prev, ...data])
 
       return { data, error: null }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar horário disponível'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar horÃ¡rio disponÃ­vel'
       setError(errorMessage)
       return { data: null, error: errorMessage }
     } finally {
@@ -157,11 +163,11 @@ export function useAvailableHours() {
     }
   }
 
-  // Atualizar um horário disponível com retry
+  // Atualizar um horÃ¡rio disponÃ­vel com retry
   const updateAvailableHour = async (hourId: string, updates: AvailableHourUpdate) => {
     try {
       if (!isAdmin) {
-        throw new Error('Apenas administradores podem gerenciar horários')
+        throw new Error('Apenas administradores podem gerenciar horÃ¡rios')
       }
 
       setLoading(true)
@@ -181,7 +187,8 @@ export function useAvailableHours() {
           throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
         }
 
-        return await response.json()
+        const json = await response.json()
+        return json as AvailableHour
       })
 
       // Invalidar cache relacionado
@@ -190,13 +197,11 @@ export function useAvailableHours() {
       }
 
       // Atualizar lista local
-      setAvailableHours(prev => 
-        prev.map(hour => hour.id === hourId ? data : hour)
-      )
+      setAvailableHours(prev => prev.map(hour => (hour.id === hourId ? data : hour)))
 
       return { data, error: null }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar horário disponível'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar horÃ¡rio disponÃ­vel'
       setError(errorMessage)
       return { data: null, error: errorMessage }
     } finally {
@@ -204,11 +209,11 @@ export function useAvailableHours() {
     }
   }
 
-  // Excluir um horário disponível
+  // Excluir um horÃ¡rio disponÃ­vel
   const deleteAvailableHour = async (hourId: string) => {
     try {
       if (!isAdmin) {
-        throw new Error('Apenas administradores podem gerenciar horários')
+        throw new Error('Apenas administradores podem gerenciar horÃ¡rios')
       }
 
       setError(null)
@@ -227,15 +232,15 @@ export function useAvailableHours() {
 
       return { success: true, error: null }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir horário disponível'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir horÃ¡rio disponÃ­vel'
       setError(errorMessage)
       return { success: false, error: errorMessage }
     }
   }
 
-  // Organizar horários por dia da semana
+  // Organizar horÃ¡rios por dia da semana
   const getScheduleByDay = (hours: AvailableHour[]): DaySchedule[] => {
-    const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+    const dayNames = ['Domingo', 'Segunda', 'TerÃ§a', 'Quarta', 'Quinta', 'Sexta', 'SÃ¡bado']
     
     // Inicializar array com os 7 dias da semana
     const scheduleByDay: DaySchedule[] = dayNames.map((name, index) => ({
@@ -244,7 +249,7 @@ export function useAvailableHours() {
       slots: []
     }))
 
-    // Agrupar horários por dia da semana
+    // Agrupar horÃ¡rios por dia da semana
     hours.forEach(hour => {
       const dayIndex = hour.day_of_week
       
@@ -260,7 +265,7 @@ export function useAvailableHours() {
     return scheduleByDay
   }
 
-  // Obter horários disponíveis para uma data específica
+  // Obter horÃ¡rios disponÃ­veis para uma data especÃ­fica
   const getAvailableSlotsForDate = async (barberId: string, date: string) => {
     try {
       setError(null)
@@ -276,7 +281,7 @@ export function useAvailableHours() {
           return data
         }
         
-        // Se não houver dados ou ocorrer erro, buscar da API
+        // Se nÃ£o houver dados ou ocorrer erro, buscar da API
         const response = await fetch(`/api/available-hours/slots?date=${date}&barber_id=${barberId}`)
         
         if (!response.ok) {
@@ -286,9 +291,9 @@ export function useAvailableHours() {
         const apiData = await response.json()
         return apiData || []
       } catch (err) {
-        console.error('Erro ao buscar horários via RPC:', err)
+        console.error('Erro ao buscar horÃ¡rios via RPC:', err)
         
-        // Fallback para horários padrão
+        // Fallback para horÃ¡rios padrÃ£o
         const dayOfWeek = new Date(date).getDay()
         const workingHours = {
           weekday: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
@@ -304,7 +309,7 @@ export function useAvailableHours() {
         return workingHours.weekday
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar horários disponíveis'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar horÃ¡rios disponÃ­veis'
       setError(errorMessage)
       return []
     }

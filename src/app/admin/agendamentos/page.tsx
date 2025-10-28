@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAppointments } from '@/hooks/useAppointments';
 import { useBarbers } from '@/hooks/useBarbers';
 import { useClients } from '@/hooks/useClients';
+import type { Client } from '@/hooks/useClients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -42,7 +43,7 @@ export default function AgendamentosPage() {
         // Fallback para barbeiro pelo ID
         const barberById = barbers?.find(b => b.id === apt.barber_id);
         // Fallback para cliente pelo ID
-        const clientById = clients?.find(c => c.id === apt.cliente_id);
+        const clientById = clients?.find((c: Client) => c.id === apt.cliente_id);
 
         return {
           ...apt,

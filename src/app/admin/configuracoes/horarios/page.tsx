@@ -127,13 +127,13 @@ export default function HorariosPage() {
     setBarberHours(updated);
   };
 
-  const updateBusinessHour = (index: number, field: keyof BusinessHour, value: any) => {
+  const updateBusinessHour = <K extends keyof BusinessHour>(index: number, field: K, value: BusinessHour[K]) => {
     const updated = [...businessHours];
     updated[index] = { ...updated[index], [field]: value };
     setBusinessHours(updated);
   };
 
-  const updateBarberHour = (index: number, field: keyof AvailableHour, value: any) => {
+  const updateBarberHour = <K extends keyof AvailableHour>(index: number, field: K, value: AvailableHour[K]) => {
     const updated = [...barberHours];
     updated[index] = { ...updated[index], [field]: value };
     setBarberHours(updated);

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -20,31 +20,41 @@ const MAX_RETRIES = 3
 const INITIAL_BACKOFF = 500
 const MAX_BACKOFF = 5000
 
+// FunÃ§Ã£o de retry com backoff exponencial
 // Função de retry com backoff exponencial
 const retryWithBackoff = async <T>(fn: () => Promise<T>): Promise<T> => {
-  let retries = 0
-  let backoff = INITIAL_BACKOFF
+  let retries = 0;
+  let backoff = INITIAL_BACKOFF;
   
   while (retries <= MAX_RETRIES) {
     try {
-      return await fn()
-    } catch (error: any) {
-      if (retries === MAX_RETRIES) throw error
+      return await fn();
+    } catch (error: unknown) { // CHATGPT: alterei aqui (substituí any por unknown e tratei com segurança)
+      if (retries === MAX_RETRIES) throw error;
       
-      // Verificar se é erro de rate limit
-      if (error?.message?.includes('rate limit') || error?.code === 'PGRST301') {
-        console.log(`Rate limit reached. Retrying in ${backoff}ms (${retries + 1}/${MAX_RETRIES})`)
-        await new Promise(resolve => setTimeout(resolve, backoff))
-        backoff = Math.min(backoff * 2, MAX_BACKOFF)
-        retries++
+      // Verificar se é erro de rate limit com checagem segura
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : '';
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code: unknown }).code)
+          : '';
+
+      if (message.includes('rate limit') || code === 'PGRST301') {
+        console.log(`Rate limit reached. Retrying in ${backoff}ms (${retries + 1}/${MAX_RETRIES})`); // CHATGPT: alterei aqui (log formatado corretamente)
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        backoff = Math.min(backoff * 2, MAX_BACKOFF);
+        retries++;
       } else {
-        throw error
+        throw error;
       }
     }
   }
   
-  throw new Error('Max retries exceeded')
-}
+  throw new Error('Max retries exceeded');
+};
 
 export function useBarbers() {
   const [barbers, setBarbers] = useState<Barber[]>([])
@@ -54,7 +64,7 @@ export function useBarbers() {
   // Buscar barbeiros com cache e retry
   const fetchBarbers = useCallback(async (includeInactive = false, forceRefresh = false) => {
     try {
-      console.log('👨‍💼 Buscando barbeiros...', { includeInactive, forceRefresh })
+      console.log('ðŸ‘¨â€ðŸ’¼ Buscando barbeiros...', { includeInactive, forceRefresh })
       setLoading(true)
       setError(null)
       
@@ -64,7 +74,7 @@ export function useBarbers() {
       if (!forceRefresh && barbersCache && 
           (now - barbersCache.timestamp) < CACHE_TTL &&
           barbersCache.includeInactive === includeInactive) {
-        console.log('📦 Usando cache de barbeiros')
+        console.log('ðŸ“¦ Usando cache de barbeiros')
         setBarbers(barbersCache.data)
         setLoading(false)
         return barbersCache.data
@@ -82,7 +92,7 @@ export function useBarbers() {
         }
 
         const { data, error } = await query
-        console.log('📊 Resultado busca barbeiros:', { data, error })
+        console.log('ðŸ“Š Resultado busca barbeiros:', { data, error })
 
         if (error) throw error
         return data || []
@@ -96,10 +106,10 @@ export function useBarbers() {
       }
 
       setBarbers(data)
-      console.log('✅ Barbeiros carregados:', data)
+      console.log('âœ… Barbeiros carregados:', data)
       return data
     } catch (err) {
-      console.error('❌ Erro ao buscar barbeiros:', err)
+      console.error('âŒ Erro ao buscar barbeiros:', err)
       setError(err instanceof Error ? err.message : 'Erro ao buscar barbeiros')
       return []
     } finally {
@@ -107,21 +117,21 @@ export function useBarbers() {
     }
   }, [])
 
-  // Função para invalidar cache
+  // FunÃ§Ã£o para invalidar cache
   const invalidateCache = useCallback(() => {
     barbersCache = null
   }, [])
 
-  // Criar barbeiro com invalidação de cache
+  // Criar barbeiro com invalidaÃ§Ã£o de cache
   const createBarber = async (barberData: Omit<BarberInsert, 'id' | 'created_at'>) => {
     try {
-      // Garantir que o status seja 'ativo' por padrão
+      // Garantir que o status seja 'ativo' por padrÃ£o
       const dataWithDefaults = {
         ...barberData,
         status: barberData.status || 'ativo' as const
       }
       
-      console.log('➕ Criando barbeiro:', dataWithDefaults)
+      console.log('âž• Criando barbeiro:', dataWithDefaults)
       setError(null)
 
       const data = await retryWithBackoff(async () => {
@@ -131,7 +141,7 @@ export function useBarbers() {
           .select()
           .single()
 
-        console.log('📊 Resultado criação barbeiro:', { data, error })
+        console.log('ðŸ“Š Resultado criaÃ§Ã£o barbeiro:', { data, error })
 
         if (error) throw error
         return data
@@ -140,21 +150,21 @@ export function useBarbers() {
       // Invalidar cache e atualizar lista local
       invalidateCache()
       setBarbers(prev => [...prev, data])
-      console.log('✅ Barbeiro criado:', data)
+      console.log('âœ… Barbeiro criado:', data)
       
       return { data, error: null }
     } catch (err) {
-      console.error('❌ Erro ao criar barbeiro:', err)
+      console.error('âŒ Erro ao criar barbeiro:', err)
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar barbeiro'
       setError(errorMessage)
       return { data: null, error: errorMessage }
     }
   }
 
-  // Atualizar barbeiro com retry e invalidação de cache
+  // Atualizar barbeiro com retry e invalidaÃ§Ã£o de cache
   const updateBarber = async (id: string, updates: BarberUpdate) => {
     try {
-      console.log('✏️ Atualizando barbeiro:', { id, updates })
+      console.log('âœï¸ Atualizando barbeiro:', { id, updates })
       setError(null)
 
       const data = await retryWithBackoff(async () => {
@@ -165,7 +175,7 @@ export function useBarbers() {
           .select()
           .single()
 
-        console.log('📊 Resultado atualização barbeiro:', { data, error })
+        console.log('ðŸ“Š Resultado atualizaÃ§Ã£o barbeiro:', { data, error })
 
         if (error) throw error
         return data
@@ -176,11 +186,11 @@ export function useBarbers() {
       setBarbers(prev => prev.map(barber => 
         barber.id === id ? data : barber
       ))
-      console.log('✅ Barbeiro atualizado:', data)
+      console.log('âœ… Barbeiro atualizado:', data)
       
       return { data, error: null }
     } catch (err) {
-      console.error('❌ Erro ao atualizar barbeiro:', err)
+      console.error('âŒ Erro ao atualizar barbeiro:', err)
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar barbeiro'
       setError(errorMessage)
       return { data: null, error: errorMessage }
@@ -220,11 +230,11 @@ export function useBarbers() {
 
   // Configurar realtime
   useEffect(() => {
-    console.log('🔄 useBarbers useEffect executado')
-    // Buscar apenas barbeiros ativos por padrão
+    console.log('ðŸ”„ useBarbers useEffect executado')
+    // Buscar apenas barbeiros ativos por padrÃ£o
     fetchBarbers(false)
 
-    // Escutar mudanças em tempo real
+    // Escutar mudanÃ§as em tempo real
     const channel = supabase
       .channel('barbers-changes')
       .on(
@@ -260,3 +270,5 @@ export function useBarbers() {
     refetch: fetchBarbers
   }
 }
+
+

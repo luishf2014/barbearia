@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import dynamic from 'next/dynamic';
@@ -24,14 +24,14 @@ const LoadingCard = () => {
 };
 
 // Função helper para criar componentes dinâmicos com loading
-function createDynamicComponent<T = {}>(
+function createDynamicComponent<T = unknown>( // CHATGPT: alterei aqui (substituí {} por unknown)
   importFn: () => Promise<{ default: ComponentType<T> }>,
   loadingComponent?: (props: DynamicOptionsLoadingProps) => ReactNode
-) {
+): ComponentType<T> { // CHATGPT: alterei aqui (tipagem explícita do retorno)
   return dynamic(importFn, {
     loading: loadingComponent || LoadingSpinner,
     ssr: false // Desabilitar SSR para componentes pesados
-  });
+  }) as ComponentType<T>; // CHATGPT: alterei aqui (assegurei o tipo do componente dinâmico)
 }
 
 // Componentes de barbeiros (existem no projeto)
@@ -93,7 +93,7 @@ export function preloadCriticalComponents() {
 
   criticalImports.forEach(importFn => {
     // Executar import mas não aguardar
-    importFn().catch(error => {
+    importFn().catch((error: unknown) => { // CHATGPT: alterei aqui (tipagem explícita e segura)
       console.warn('Falha ao pré-carregar componente:', error);
     });
   });
@@ -101,7 +101,7 @@ export function preloadCriticalComponents() {
 
 // Função para carregar componentes baseado na rota
 export function preloadRouteComponents(route: string) {
-  const routeComponentMap: Record<string, Array<() => Promise<any>>> = {
+  const routeComponentMap: Record<string, Array<() => Promise<unknown>>> = { // CHATGPT: alterei aqui (substituí any por unknown)
     '/admin/barbeiros': [
       () => import('@/components/barbers/AddBarberForm'),
       () => import('@/components/barbers/BarbersList'),
@@ -122,7 +122,7 @@ export function preloadRouteComponents(route: string) {
   const componentsToLoad = routeComponentMap[route];
   if (componentsToLoad) {
     componentsToLoad.forEach(importFn => {
-      importFn().catch(error => {
+      importFn().catch((error: unknown) => { // CHATGPT: alterei aqui (tipagem explícita e segura)
         console.warn(`Falha ao pré-carregar componente para rota ${route}:`, error);
       });
     });

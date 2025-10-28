@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback, useMemo } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/lib/supabase'
 
-// Cache global para otimização
-let scheduleCache = new Map<string, { data: any; timestamp: number }>()
+// Cache global para otimizaÃ§Ã£o
+const scheduleCache = new Map<string, { data: unknown; timestamp: number }>() // CHATGPT: alterei aqui (const + unknown no cache)()
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
 
 type TimeSlot = {
@@ -37,7 +37,7 @@ export function useSchedule() {
   const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClientComponentClient<Database>(), [])
 
-  // Função para invalidar cache
+  // FunÃ§Ã£o para invalidar cache
   const invalidateCache = useCallback((key?: string) => {
     if (key) {
       scheduleCache.delete(key)
@@ -46,7 +46,7 @@ export function useSchedule() {
     }
   }, [])
 
-  // Função para verificar cache
+  // FunÃ§Ã£o para verificar cache
   const getCachedData = useCallback((key: string) => {
     const cached = scheduleCache.get(key)
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -55,8 +55,8 @@ export function useSchedule() {
     return null
   }, [])
 
-  // Função para salvar no cache
-  const setCachedData = useCallback((key: string, data: any) => {
+  // FunÃ§Ã£o para salvar no cache
+  const setCachedData = useCallback((key: string, data: unknown) => {
     scheduleCache.set(key, { data, timestamp: Date.now() })
   }, [])
 
@@ -64,7 +64,7 @@ export function useSchedule() {
     const cacheKey = `slots_${barberId}_${date}`
     
     // Verificar cache primeiro
-    const cached = getCachedData(cacheKey)
+    const cached = getCachedData(cacheKey) as TimeSlot[] | null
     if (cached) {
       return cached
     }
@@ -73,7 +73,7 @@ export function useSchedule() {
       setLoading(true)
       setError(null)
       
-      // Otimização: Tentar RPC primeiro com timeout
+      // OtimizaÃ§Ã£o: Tentar RPC primeiro com timeout
       const rpcPromise = supabase
         .rpc('get_barber_availability', {
           p_barber_id: barberId,
@@ -89,10 +89,10 @@ export function useSchedule() {
         const { data: rpcData, error: rpcError } = await Promise.race([
           rpcPromise,
           timeoutPromise
-        ]) as any
+        ]) as { data: unknown; error: unknown } // CHATGPT: alterei aqui (tipo explícito em vez de any)
 
         if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-          // Recalcular disponibilidade considerando múltiplos status de agendamento
+          // Recalcular disponibilidade considerando mÃºltiplos status de agendamento
           try {
             const { data: booked } = await supabase
               .from('appointments')
@@ -102,15 +102,17 @@ export function useSchedule() {
               .in('status', ['agendado', 'confirmado', 'pendente'])
 
             const bookedTimes = new Set((booked || []).map(a => a.hora))
-            const result = rpcData.map((slot: any) => ({
+            const slots = rpcData as Array<{ time_slot: string; is_available: boolean }>
+            const result = slots.map((slot) => ({
               time_slot: slot.time_slot,
               is_available: !bookedTimes.has(slot.time_slot)
             })) as TimeSlot[]
             setCachedData(cacheKey, result)
             return result
-          } catch (e) {
+          } catch (error: unknown) { // CHATGPT: alterei aqui (erro tipado como unknown)
             // Se falhar ao buscar agendamentos, usar resultado do RPC
-            const result = rpcData.map((slot: any) => ({
+            const slots = rpcData as Array<{ time_slot: string; is_available: boolean }>
+            const result = slots.map((slot) => ({
               time_slot: slot.time_slot,
               is_available: slot.is_available
             })) as TimeSlot[]
@@ -118,15 +120,15 @@ export function useSchedule() {
             return result
           }
         }
-      } catch (rpcErr) {
+      } catch (rpcErr: unknown) { // CHATGPT: alterei aqui (erro tipado como unknown)
         console.warn('RPC falhou ou timeout, usando fallback:', rpcErr)
       }
 
-      // Fallback otimizado: usar horários padrão e verificar agendamentos
+      // Fallback otimizado: usar horÃ¡rios padrÃ£o e verificar agendamentos
       const dayOfWeek = new Date(date).getDay()
       const defaultHours =
         dayOfWeek === 0 ? [] : // Domingo fechado
-        dayOfWeek === 6 ? ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30'] : // Sábado
+        dayOfWeek === 6 ? ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30'] : // SÃ¡bado
         ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30'] // Segunda a sexta
 
       // Buscar agendamentos existentes em paralelo
@@ -148,9 +150,9 @@ export function useSchedule() {
         
         setCachedData(cacheKey, result)
         return result
-      } catch (fallbackErr) {
-        console.warn('Fallback falhou, usando horários padrão:', fallbackErr)
-        // Em caso de erro, retornar todos os horários como disponíveis
+      } catch (fallbackErr: unknown) { // CHATGPT: alterei aqui (erro tipado como unknown)
+        console.warn('Fallback falhou, usando horÃ¡rios padrÃ£o:', fallbackErr)
+        // Em caso de erro, retornar todos os horÃ¡rios como disponÃ­veis
         const result = defaultHours.map(time => ({
           time_slot: time,
           is_available: true
@@ -170,7 +172,7 @@ export function useSchedule() {
     const cacheKey = 'business_hours'
     
     // Verificar cache primeiro
-    const cached = getCachedData(cacheKey)
+    const cached = getCachedData(cacheKey) as BusinessHour[] | null
     if (cached) {
       return cached
     }
@@ -196,7 +198,7 @@ export function useSchedule() {
     const cacheKey = `barber_hours_${barberId}`
     
     // Verificar cache primeiro
-    const cached = getCachedData(cacheKey)
+    const cached = getCachedData(cacheKey) as AvailableHour[] | null
     if (cached) {
       return cached
     }
@@ -224,13 +226,13 @@ export function useSchedule() {
       setLoading(true)
       setError(null)
       
-      // Desativar todos os horários existentes
+      // Desativar todos os horÃ¡rios existentes
       await supabase
         .from('business_hours')
         .update({ is_active: false })
         .eq('is_active', true)
       
-      // Inserir novos horários
+      // Inserir novos horÃ¡rios
       const { error } = await supabase
         .from('business_hours')
         .insert(hours)
@@ -254,14 +256,14 @@ export function useSchedule() {
       setLoading(true)
       setError(null)
       
-      // Desativar horários existentes do barbeiro
+      // Desativar horÃ¡rios existentes do barbeiro
       await supabase
         .from('available_hours')
         .update({ is_active: false })
         .eq('barber_id', barberId)
         .eq('is_active', true)
       
-      // Inserir novos horários
+      // Inserir novos horÃ¡rios
       const hoursWithBarberId = hours.map(hour => ({
         ...hour,
         barber_id: barberId
